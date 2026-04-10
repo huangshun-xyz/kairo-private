@@ -1,0 +1,13 @@
+# Build outputs
+/build/
+/cmake-build-*/
+/out/
+
+# Downloaded third-party sources
+/third_party/skia/
+
+# Local tool outputs
+/compile_commands.json
+
+# macOS noise
+.DS_Store
