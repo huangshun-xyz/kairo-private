@@ -1,0 +1,53 @@
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+  message(STATUS "Skipping kairo_ios_demo because CMAKE_SYSTEM_NAME is not iOS.")
+  return()
+endif()
+
+find_library(UIKIT_FRAMEWORK UIKit REQUIRED)
+find_library(COREGRAPHICS_FRAMEWORK CoreGraphics REQUIRED)
+find_library(QUARTZCORE_FRAMEWORK QuartzCore REQUIRED)
+
+set(KAIRO_IOS_DEPLOYMENT_TARGET "${CMAKE_OSX_DEPLOYMENT_TARGET}")
+if(NOT KAIRO_IOS_DEPLOYMENT_TARGET)
+  set(KAIRO_IOS_DEPLOYMENT_TARGET "16.0")
+endif()
+
+add_executable(
+  kairo_ios_demo
+  MACOSX_BUNDLE
+  AppDelegate.mm
+  ViewController.mm
+  MainView.mm
+  main.mm
+)
+
+target_include_directories(
+  kairo_ios_demo
+  PRIVATE
+    "${PROJECT_SOURCE_DIR}/core"
+    "${PROJECT_SOURCE_DIR}/render"
+)
+
+target_link_libraries(
+  kairo_ios_demo
+  PRIVATE
+    kairo_render
+    "${UIKIT_FRAMEWORK}"
+    "${COREGRAPHICS_FRAMEWORK}"
+    "${QUARTZCORE_FRAMEWORK}"
+)
+
+set_target_properties(
+  kairo_ios_demo
+  PROPERTIES
+    MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist"
+    XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "com.kairo.demo"
+    XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
+    XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET "${KAIRO_IOS_DEPLOYMENT_TARGET}"
+    XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED "NO"
+    XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "NO"
+    XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY ""
+    XCODE_ATTRIBUTE_ENABLE_BITCODE "NO"
+    XCODE_ATTRIBUTE_ONLY_ACTIVE_ARCH "YES"
+    XCODE_ATTRIBUTE_SUPPORTED_PLATFORMS "iphonesimulator"
+)
