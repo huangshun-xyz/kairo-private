@@ -2,12 +2,21 @@
 /build/
 /cmake-build-*/
 /out/
+*.xcresult
 
 # Downloaded third-party sources
 /third_party/skia/
 
 # Local tool outputs
 /compile_commands.json
+.cache/
+.clangd/
+
+# Editor state
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
 
 # macOS noise
 .DS_Store
