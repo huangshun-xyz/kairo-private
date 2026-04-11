@@ -131,3 +131,5 @@ open build/ios_sim/kairo.xcodeproj
 ## 进一步说明
 
 Step 1 的详细记录见 [docs/step1_ios_demo.md](/Users/bytedance/Desktop/lark/kairo-private/docs/step1_ios_demo.md)。
+
+开发环境和 VSCode 相关说明见 [docs/dev/vscode.md](/Users/bytedance/Desktop/lark/kairo-private/docs/dev/vscode.md)。
