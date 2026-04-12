@@ -1,10 +1,10 @@
 # kairo-private
 
-`kairo-private` 是一个最小跨平台图表渲染项目骨架。
+`kairo-private` 是一个最小跨平台图表 SDK 项目骨架。
 
 当前阶段只实现 Step 1 的最小闭环：
 
-- 用 CMake 统一组织工程
+- SDK 与 iOS Demo 分离构建
 - 自动拉取并编译 Skia
 - 产出一个可运行的 iOS Simulator Demo
 
@@ -14,33 +14,29 @@
 
 已完成：
 
-- `core/` 中的最小图表数据结构
-- `render/` 中基于 Skia 的最小柱状图渲染
-- `app/ios/` 中的 iOS Demo App
-- `scripts/bootstrap.sh` 一键拉起 Skia、生成工程并构建 Demo
+- `src/` 作为 SDK 本体，单独编译
+- `app/ios/` 作为独立 Demo 工程，单独集成 SDK
+- `src/render/` 中基于 Skia 的最小 K 线渲染
+- `scripts/bootstrap.sh` 一键拉起 Skia、生成 iOS Demo 工程并构建 Demo
 
-当前 Demo 使用 Skia CPU Raster 路径，目标是先验证“数据 -> Skia -> iOS App”这条链路。
+当前 Demo 使用 Skia CPU Raster 路径，目标是先验证“SDK -> Skia -> iOS App”这条链路。
 
 ## 目录结构
 
 ```text
 ├── CMakeLists.txt
-├── cmake/
-│   └── skia.cmake
 ├── scripts/
 │   ├── fetch_skia.sh
 │   ├── build_skia_ios_sim.sh
 │   └── bootstrap.sh
-├── third_party/
-│   └── skia/
-├── core/
+├── src/
 │   ├── CMakeLists.txt
-│   ├── chart.h
-│   └── chart.cc
-├── render/
-│   ├── CMakeLists.txt
-│   ├── skia_renderer.h
-│   └── skia_renderer.cc
+│   ├── cmake/
+│   │   └── skia.cmake
+│   ├── core/
+│   ├── render/
+│   └── third_party/
+│       └── skia/
 ├── app/
 │   └── ios/
 │       ├── CMakeLists.txt
@@ -65,7 +61,14 @@
 
 默认会使用 Skia 自带的 `bin/fetch-gn` 和 `bin/fetch-ninja` 自动下载匹配版本工具，不依赖本地 `depot_tools`。
 
-## 快速开始
+## 构建 SDK
+
+```bash
+cmake --preset vscode-index-ios-sim --fresh
+cmake --build build/vscode-index -j4
+```
+
+## 构建 iOS Demo
 
 一键构建：
 
@@ -75,10 +78,10 @@
 
 默认会完成这些事情：
 
-- 拉取 `third_party/skia`
-- 编译 `third_party/skia/out/ios_sim/libskia.a`
-- 生成 `build/ios_sim/kairo.xcodeproj`
-- 构建 `build/ios_sim/app/ios/Debug-iphonesimulator/kairo_ios_demo.app`
+- 拉取 `src/third_party/skia`
+- 编译 `src/third_party/skia/out/ios_sim/libskia.a`
+- 生成 `build/ios_sim/kairo_ios_demo.xcodeproj`
+- 构建 `build/ios_sim` 下的 `kairo_ios_demo.app`
 
 如果只想单独执行 Skia 拉取或编译：
 
@@ -119,7 +122,7 @@ xcrun simctl launch booted com.kairo.demo
 也可以直接用 Xcode 打开：
 
 ```bash
-open build/ios_sim/kairo.xcodeproj
+open build/ios_sim/kairo_ios_demo.xcodeproj
 ```
 
 ## 当前限制

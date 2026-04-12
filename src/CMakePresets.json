@@ -8,17 +8,16 @@
   "configurePresets": [
     {
       "name": "vscode-index-ios-sim",
-      "displayName": "VSCode Index (iOS Simulator)",
+      "displayName": "VSCode Index (iOS Simulator SDK)",
       "description": "Generates compile_commands.json for clangd and VSCode navigation.",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/vscode-index",
+      "binaryDir": "${sourceDir}/../build/vscode-index",
       "cacheVariables": {
         "CMAKE_MAKE_PROGRAM": "${sourceDir}/third_party/skia/third_party/ninja/ninja",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "CMAKE_SYSTEM_NAME": "iOS",
         "CMAKE_OSX_SYSROOT": "iphonesimulator",
-        "CMAKE_OSX_DEPLOYMENT_TARGET": "16.0",
-        "KAIRO_ENABLE_IOS_DEMO": "ON"
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "16.0"
       }
     }
   ]

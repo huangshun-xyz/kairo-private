@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 
-SKIA_DIR="${SKIA_DIR:-${ROOT_DIR}/third_party/skia}"
+SKIA_DIR="${SKIA_DIR:-${ROOT_DIR}/src/third_party/skia}"
 SKIA_GIT_URL="${SKIA_GIT_URL:-https://skia.googlesource.com/skia.git}"
 SKIA_GIT_REF="${SKIA_GIT_REF:-main}"
 SKIA_SYNC_DEPS="${SKIA_SYNC_DEPS:-0}"

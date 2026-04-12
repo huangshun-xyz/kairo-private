@@ -23,8 +23,10 @@
 
 默认行为：
 
-- 拉取 `third_party/skia`
-- 构建 `third_party/skia/out/ios_sim/libskia.a`
+- 拉取 `src/third_party/skia`
+- 构建 `src/third_party/skia/out/ios_sim/libskia.a`
+- SDK 构建入口位于仓库根目录
+- iOS Demo 构建入口位于 `app/ios`
 - 生成 `build/ios_sim/kairo.xcodeproj`
 - 构建 `build/ios_sim/app/ios/Debug-iphonesimulator/kairo_ios_demo.app`
 

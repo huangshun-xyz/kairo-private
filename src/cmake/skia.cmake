@@ -3,9 +3,11 @@ function(kairo_configure_skia)
     return()
   endif()
 
+  get_filename_component(KAIRO_SDK_ROOT "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/.." ABSOLUTE)
+
   set(
     KAIRO_SKIA_DIR
-    "${CMAKE_SOURCE_DIR}/third_party/skia"
+    "${KAIRO_SDK_ROOT}/third_party/skia"
     CACHE PATH
     "Location of the checked out Skia source tree"
   )

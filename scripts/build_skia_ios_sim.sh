@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 
-SKIA_DIR="${SKIA_DIR:-${ROOT_DIR}/third_party/skia}"
+SKIA_DIR="${SKIA_DIR:-${ROOT_DIR}/src/third_party/skia}"
 SKIA_OUT_DIR="${SKIA_OUT_DIR:-${SKIA_DIR}/out/ios_sim}"
 IOS_SIM_ARCH="${IOS_SIM_ARCH:-$(uname -m)}"
 IOS_DEPLOYMENT_TARGET="${IOS_DEPLOYMENT_TARGET:-16.0}"

@@ -3,11 +3,12 @@
 #include <cstdlib>
 #include <cstring>
 #include <cmath>
+#include <memory>
 
 #import <QuartzCore/QuartzCore.h>
 
 #include "chart.h"
-#include "skia_renderer.h"
+#include "demo_chart_factory.h"
 #include "include/core/SkBitmap.h"
 #include "include/core/SkCanvas.h"
 #include "include/core/SkImageInfo.h"
@@ -65,8 +66,7 @@ CGImageRef CreateImageFromBitmap(const SkBitmap& bitmap, int pixel_width, int pi
 }  // namespace
 
 @implementation MainView {
-  kairo::core::Chart _chart;
-  kairo::render::SkiaRenderer _renderer;
+  std::unique_ptr<kairo::Chart> _chart;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
@@ -79,7 +79,7 @@ CGImageRef CreateImageFromBitmap(const SkBitmap& bitmap, int pixel_width, int pi
   self.contentScaleFactor = UIScreen.mainScreen.scale;
   self.layer.contentsGravity = kCAGravityResize;
   self.layer.contentsScale = self.contentScaleFactor;
-  _chart = kairo::core::Chart::Demo();
+  _chart = kairo::CreateDemoChart();
   return self;
 }
 
@@ -113,7 +113,13 @@ CGImageRef CreateImageFromBitmap(const SkBitmap& bitmap, int pixel_width, int pi
   }
 
   SkCanvas canvas(bitmap);
-  _renderer.DrawChart(canvas, _chart, pixel_width, pixel_height);
+  if (_chart == nullptr) {
+    return;
+  }
+
+  canvas.clear(SK_ColorWHITE);
+  _chart->SetBounds(SkRect::MakeWH(static_cast<float>(pixel_width), static_cast<float>(pixel_height)));
+  _chart->Draw(canvas);
 
   CGImageRef image = CreateImageFromBitmap(bitmap, pixel_width, pixel_height);
   if (image == nullptr) {

@@ -1,7 +1,27 @@
+cmake_minimum_required(VERSION 3.29)
+
+project(kairo_ios_demo LANGUAGES C CXX OBJC OBJCXX)
+
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_OBJC_STANDARD 11)
+set(CMAKE_OBJC_STANDARD_REQUIRED ON)
+set(CMAKE_OBJCXX_STANDARD 17)
+set(CMAKE_OBJCXX_STANDARD_REQUIRED ON)
+
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
-  message(STATUS "Skipping kairo_ios_demo because CMAKE_SYSTEM_NAME is not iOS.")
-  return()
+  message(FATAL_ERROR "kairo_ios_demo must be configured with CMAKE_SYSTEM_NAME=iOS.")
 endif()
+
+get_filename_component(KAIRO_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
+
+include("${KAIRO_ROOT_DIR}/src/cmake/skia.cmake")
+kairo_configure_skia()
+
+add_subdirectory("${KAIRO_ROOT_DIR}/src" "${CMAKE_BINARY_DIR}/kairo_sdk")
 
 find_library(UIKIT_FRAMEWORK UIKit REQUIRED)
 find_library(COREGRAPHICS_FRAMEWORK CoreGraphics REQUIRED)
@@ -24,8 +44,8 @@ add_executable(
 target_include_directories(
   kairo_ios_demo
   PRIVATE
-    "${PROJECT_SOURCE_DIR}/core"
-    "${PROJECT_SOURCE_DIR}/render"
+    "${KAIRO_ROOT_DIR}/src/core"
+    "${KAIRO_ROOT_DIR}/src/render"
 )
 
 target_link_libraries(
@@ -41,6 +61,11 @@ set_target_properties(
   kairo_ios_demo
   PROPERTIES
     MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist"
+    MACOSX_BUNDLE_GUI_IDENTIFIER "com.kairo.demo"
+    MACOSX_BUNDLE_BUNDLE_NAME "kairo_ios_demo"
+    MACOSX_BUNDLE_EXECUTABLE_NAME "kairo_ios_demo"
+    MACOSX_BUNDLE_SHORT_VERSION_STRING "1.0"
+    MACOSX_BUNDLE_BUNDLE_VERSION "1"
     XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "com.kairo.demo"
     XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
     XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET "${KAIRO_IOS_DEPLOYMENT_TARGET}"
