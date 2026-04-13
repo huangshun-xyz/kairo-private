@@ -38,8 +38,14 @@ void CrosshairLayer::Draw(RenderContext* ctx) {
   crosshair_paint.setColor(color_);
   crosshair_paint.setStrokeWidth(1.0f);
 
-  ctx->canvas->drawLine(x, ctx->pane_bounds.top(), x, ctx->pane_bounds.bottom(), crosshair_paint);
-  ctx->canvas->drawLine(ctx->pane_bounds.left(), y, ctx->pane_bounds.right(), y, crosshair_paint);
+  ctx->canvas->drawLine(
+      x, ctx->pane_content_bounds.top(), x, ctx->pane_content_bounds.bottom(), crosshair_paint);
+  ctx->canvas->drawLine(
+      ctx->pane_content_bounds.left(),
+      y,
+      ctx->pane_content_bounds.right(),
+      y,
+      crosshair_paint);
   ctx->canvas->drawCircle(x, y, 3.0f, crosshair_paint);
 }
 

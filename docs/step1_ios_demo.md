@@ -62,8 +62,10 @@ cmake --build build/ios_sim --config Debug --target kairo_ios_demo
 - 直接用 Xcode 打开 `build/ios_sim/kairo.xcodeproj`，运行 `kairo_ios_demo`
 - 用 `xcodebuild` / `simctl` 继续做自动安装与启动
 
+Chart 架构说明见 [docs/chart_architecture.md](./chart_architecture.md)。
+
 ## 约束
 
 - 当前只构建宿主机架构对应的 Simulator 版本
-- 当前 Demo 只使用 Skia CPU Raster，不包含 Metal / 手势 / 图层系统
+- 当前 Demo 只使用 Skia CPU Raster，交互能力仍很少，只有最小的 pane/layout/overlay 结构
 - 当前默认不跑 `tools/git-sync-deps`，以避免最小闭环被上游限流拖住

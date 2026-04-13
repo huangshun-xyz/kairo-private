@@ -5,16 +5,19 @@
 
 #include "include/core/SkRect.h"
 #include "layer.h"
+#include "pane_layout.h"
 #include "series.h"
 #include "y_scale.h"
 
 namespace kairo {
 
-// Pane 表示一个纵向堆叠的图表区域，拥有自己的 YScale、Series 和 Layer。
+// Pane 表示 chart 中的一个垂直区域，拥有自己的布局信息、YScale、Series 和 Layer。
 class Pane {
  public:
   Pane();
   explicit Pane(std::unique_ptr<YScale> y_scale);
+  explicit Pane(const PaneLayout& layout);
+  Pane(const PaneLayout& layout, std::unique_ptr<YScale> y_scale);
   ~Pane();
 
   Pane(const Pane&) = delete;
@@ -22,11 +25,14 @@ class Pane {
   Pane(Pane&&) = delete;
   Pane& operator=(Pane&&) = delete;
 
-  void SetBounds(const SkRect& bounds);
-  const SkRect& bounds() const;
+  void SetLayout(const PaneLayout& layout);
+  const PaneLayout& layout() const;
 
-  void SetHeightWeight(float weight);
-  float height_weight() const;
+  void SetFrameRect(const SkRect& rect);
+  const SkRect& frame_rect() const;
+
+  void SetContentRect(const SkRect& rect);
+  const SkRect& content_rect() const;
 
   YScale* y_scale();
   const YScale* y_scale() const;
@@ -43,8 +49,9 @@ class Pane {
   void UpdateAutoRange(const Viewport& viewport);
 
  private:
-  SkRect bounds_ = SkRect::MakeEmpty();
-  float height_weight_ = 1.0f;
+  PaneLayout layout_;
+  SkRect frame_rect_ = SkRect::MakeEmpty();
+  SkRect content_rect_ = SkRect::MakeEmpty();
   std::unique_ptr<YScale> y_scale_;
   std::vector<std::unique_ptr<Series>> series_;
   std::vector<std::unique_ptr<Layer>> layers_;

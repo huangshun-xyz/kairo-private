@@ -39,8 +39,10 @@ add_library(
   STATIC
     render/candle_series.cc
     render/crosshair_layer.cc
+    render/crosshair_overlay.cc
     render/demo_chart_factory.cc
     render/grid_layer.cc
+    render/volume_series.cc
 )
 add_library(kairo::render ALIAS kairo_render)
 

@@ -6,8 +6,9 @@
 #include "candle_data_source.h"
 #include "candle_series.h"
 #include "chart.h"
-#include "crosshair_layer.h"
+#include "crosshair_overlay.h"
 #include "grid_layer.h"
+#include "volume_series.h"
 
 namespace kairo {
 
@@ -37,18 +38,33 @@ std::unique_ptr<Chart> CreateDemoChart() {
 
   auto chart = std::make_unique<Chart>();
   chart->SetViewport(Viewport{0.0, static_cast<double>(candles.size())});
+  chart->SetContentInsets(Insets{12.0f, 12.0f, 12.0f, 12.0f});
 
   auto data_source = std::make_shared<VectorCandleDataSource>(candles);
-  auto pane = std::make_unique<Pane>();
-  pane->AddLayer(std::make_unique<GridLayer>());
-  pane->AddSeries(std::make_unique<CandleSeries>(data_source));
+  PaneLayout price_layout;
+  price_layout.size_mode = PaneSizeMode::kStretch;
+  price_layout.insets.bottom = 4.0f;
 
-  auto crosshair = std::make_unique<CrosshairLayer>();
+  auto price_pane = std::make_unique<Pane>(price_layout);
+  price_pane->AddLayer(std::make_unique<GridLayer>());
+  price_pane->AddSeries(std::make_unique<CandleSeries>(data_source));
+  chart->AddPane(std::move(price_pane));
+
+  PaneLayout volume_layout;
+  volume_layout.size_mode = PaneSizeMode::kFixed;
+  volume_layout.height = 96.0f;
+  volume_layout.insets.top = 4.0f;
+
+  auto volume_pane = std::make_unique<Pane>(volume_layout);
+  volume_pane->AddLayer(std::make_unique<GridLayer>());
+  volume_pane->AddSeries(std::make_unique<VolumeSeries>(data_source));
+  chart->AddPane(std::move(volume_pane));
+
+  auto crosshair = std::make_unique<CrosshairOverlay>();
   crosshair->SetVisible(true);
-  crosshair->SetCrosshair(static_cast<double>(candles.size() - 2), candles[candles.size() - 2].close);
-  pane->AddLayer(std::move(crosshair));
-
-  chart->AddPane(std::move(pane));
+  crosshair->SetCrosshair(
+      0u, static_cast<double>(candles.size() - 2), candles[candles.size() - 2].close);
+  chart->AddOverlay(std::move(crosshair));
   return chart;
 }
 

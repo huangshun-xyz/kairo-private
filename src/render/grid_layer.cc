@@ -36,7 +36,7 @@ void GridLayer::Draw(RenderContext* ctx) {
 
   SkPaint background_paint;
   background_paint.setColor(background_color_);
-  ctx->canvas->drawRect(ctx->pane_bounds, background_paint);
+  ctx->canvas->drawRect(ctx->pane_content_bounds, background_paint);
 
   SkPaint grid_paint;
   grid_paint.setAntiAlias(true);
@@ -47,16 +47,19 @@ void GridLayer::Draw(RenderContext* ctx) {
   const int columns = std::max(kGridColumns, 2);
 
   for (int row = 0; row < rows; ++row) {
-    const float y = ctx->pane_bounds.top() +
-        (ctx->pane_bounds.height() * static_cast<float>(row) / static_cast<float>(rows - 1));
-    ctx->canvas->drawLine(ctx->pane_bounds.left(), y, ctx->pane_bounds.right(), y, grid_paint);
+    const float y = ctx->pane_content_bounds.top() +
+        (ctx->pane_content_bounds.height() * static_cast<float>(row) /
+         static_cast<float>(rows - 1));
+    ctx->canvas->drawLine(
+        ctx->pane_content_bounds.left(), y, ctx->pane_content_bounds.right(), y, grid_paint);
   }
 
   for (int column = 0; column < columns; ++column) {
-    const float x = ctx->pane_bounds.left() +
-        (ctx->pane_bounds.width() * static_cast<float>(column) /
+    const float x = ctx->pane_content_bounds.left() +
+        (ctx->pane_content_bounds.width() * static_cast<float>(column) /
          static_cast<float>(columns - 1));
-    ctx->canvas->drawLine(x, ctx->pane_bounds.top(), x, ctx->pane_bounds.bottom(), grid_paint);
+    ctx->canvas->drawLine(
+        x, ctx->pane_content_bounds.top(), x, ctx->pane_content_bounds.bottom(), grid_paint);
   }
 }
 
