@@ -7,6 +7,8 @@
 - SDK 与 iOS Demo 分离构建
 - 自动拉取并编译 Skia
 - 产出一个可运行的 iOS Simulator Demo
+- 在 `src/public` 提供面向业务的 `KChart` facade
+- 在 `platform/ios` 提供原生 Swift `KRChartView`
 
 当前还没有开始做 Android / Windows / macOS Demo、手势系统、多层图层系统和复杂 SDK 封装。
 
@@ -19,7 +21,7 @@
 - `src/render/` 中基于 Skia 的最小 K 线渲染
 - `scripts/bootstrap.sh` 一键拉起 Skia、生成 iOS Demo 工程并构建 Demo
 
-当前 Demo 使用 Skia CPU Raster 路径，目标是先验证“SDK -> Skia -> iOS App”这条链路。
+当前 Demo 使用 `CAMetalLayer + Skia Metal (Ganesh)` 路径，目标是先验证“SDK -> Skia -> iOS App”这条链路，并避免每帧导出 `UIImage` 的额外开销。
 
 ## 目录结构
 
@@ -34,18 +36,24 @@
 │   ├── cmake/
 │   │   └── skia.cmake
 │   ├── core/
+│   ├── public/
 │   ├── render/
 │   └── third_party/
 │       └── skia/
+├── platform/
+│   └── ios/
+│       ├── KRChartBridge.h
+│       ├── KRChartBridge.mm
+│       └── KRChartView.swift
 ├── app/
 │   └── ios/
 │       ├── CMakeLists.txt
 │       ├── AppDelegate.mm
 │       ├── AppDelegate.h
+│       ├── MainView.swift
 │       ├── ViewController.mm
 │       ├── ViewController.h
-│       ├── MainView.mm
-│       ├── MainView.h
+│       ├── kairo_ios_demo-Bridging-Header.h
 │       ├── main.mm
 │       └── Info.plist
 └── docs/
@@ -136,3 +144,11 @@ open build/ios_sim/kairo_ios_demo.xcodeproj
 Step 1 的详细记录见 [docs/step1_ios_demo.md](/Users/bytedance/Desktop/lark/kairo-private/docs/step1_ios_demo.md)。
 
 开发环境和 VSCode 相关说明见 [docs/dev/vscode.md](/Users/bytedance/Desktop/lark/kairo-private/docs/dev/vscode.md)。
+
+Public API 设计说明见 [docs/public_api_design.md](/Users/bytedance/Desktop/lark/kairo-private/docs/public_api_design.md)。
+
+Public API 的业界参考提案见 [docs/public_api_industry_proposal.md](/Users/bytedance/Desktop/lark/kairo-private/docs/public_api_industry_proposal.md)。
+
+iOS 对外接口说明见 [docs/ios_public_api.md](/Users/bytedance/Desktop/lark/kairo-private/docs/ios_public_api.md)。
+
+iOS `CAMetalLayer` 渲染说明见 [docs/ios_metal_rendering.md](/Users/bytedance/Desktop/lark/kairo-private/docs/ios_metal_rendering.md)。

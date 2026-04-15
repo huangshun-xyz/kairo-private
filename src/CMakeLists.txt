@@ -59,3 +59,26 @@ target_link_libraries(
     kairo_core
     kairo_skia
 )
+
+add_library(
+  kairo_public
+  STATIC
+    public/kchart.cc
+)
+add_library(kairo::public ALIAS kairo_public)
+
+target_include_directories(
+  kairo_public
+  PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/public"
+    "${CMAKE_CURRENT_SOURCE_DIR}/core"
+    "${CMAKE_CURRENT_SOURCE_DIR}/render"
+)
+
+target_link_libraries(
+  kairo_public
+  PUBLIC
+    kairo_render
+    kairo_core
+    kairo_skia
+)

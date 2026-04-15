@@ -67,5 +67,5 @@ Chart 架构说明见 [docs/chart_architecture.md](./chart_architecture.md)。
 ## 约束
 
 - 当前只构建宿主机架构对应的 Simulator 版本
-- 当前 Demo 只使用 Skia CPU Raster，交互能力仍很少，只有最小的 pane/layout/overlay 结构
+- 当前 Demo 使用 `CAMetalLayer + Skia Metal (Ganesh)`，但交互能力仍很少，只有最小的 pane/layout/overlay 结构
 - 当前默认不跑 `tools/git-sync-deps`，以避免最小闭环被上游限流拖住
