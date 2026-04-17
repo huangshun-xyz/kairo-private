@@ -17,7 +17,69 @@ public struct KRCandle {
     }
 }
 
-open class KRChartView: UIView {
+public enum KRScrollBoundaryBehavior {
+    case clamp
+    case bounce
+
+    fileprivate var hostValue: KRScrollBoundaryBehaviorValue {
+        switch self {
+        case .clamp:
+            return .clamp
+        case .bounce:
+            return .bounce
+        }
+    }
+}
+
+public struct KRScrollInteractionOptions {
+    public var boundaryBehavior: KRScrollBoundaryBehavior
+    public var alwaysScrollable: Bool
+    public var allowInertia: Bool
+    public var dragSensitivity: Double
+    public var overscrollFriction: Double
+    public var decelerationRate: Double
+    public var springMass: Double
+    public var springStiffness: Double
+    public var springDampingRatio: Double
+
+    public init(
+        boundaryBehavior: KRScrollBoundaryBehavior = .bounce,
+        alwaysScrollable: Bool = true,
+        allowInertia: Bool = true,
+        dragSensitivity: Double = 1.0,
+        overscrollFriction: Double = 0.52,
+        decelerationRate: Double = 0.135,
+        springMass: Double = 0.5,
+        springStiffness: Double = 100.0,
+        springDampingRatio: Double = 1.1
+    ) {
+        self.boundaryBehavior = boundaryBehavior
+        self.alwaysScrollable = alwaysScrollable
+        self.allowInertia = allowInertia
+        self.dragSensitivity = dragSensitivity
+        self.overscrollFriction = overscrollFriction
+        self.decelerationRate = decelerationRate
+        self.springMass = springMass
+        self.springStiffness = springStiffness
+        self.springDampingRatio = springDampingRatio
+    }
+
+    fileprivate var hostValue: KRScrollInteractionOptionsValue {
+        var value = KRScrollInteractionOptionsValue()
+        value.boundaryBehavior = boundaryBehavior.hostValue
+        value.alwaysScrollable = ObjCBool(alwaysScrollable)
+        value.allowInertia = ObjCBool(allowInertia)
+        value.dragSensitivity = dragSensitivity
+        value.overscrollFriction = overscrollFriction
+        value.decelerationRate = decelerationRate
+        value.springMass = springMass
+        value.springStiffness = springStiffness
+        value.springDampingRatio = springDampingRatio
+        return value
+    }
+}
+
+open class KRChartView: UIView, KRIOSChartHostDelegate {
     open override class var layerClass: AnyClass {
         CAMetalLayer.self
     }
@@ -30,21 +92,25 @@ open class KRChartView: UIView {
 
     public var crosshairEnabled: Bool = true {
         didSet {
-            bridge.isCrosshairEnabled = crosshairEnabled
+            host.isCrosshairEnabled = crosshairEnabled
             if !crosshairEnabled {
-                bridge.clearCrosshair()
+                host.clearCrosshair()
             }
             renderChart()
         }
     }
 
-    private let bridge = KRChartBridge()
+    public var scrollInteractionOptions = KRScrollInteractionOptions() {
+        didSet {
+            host.setScrollInteractionOptions(scrollInteractionOptions.hostValue)
+        }
+    }
+
+    private let host = KRIOSChartHost()
     private lazy var panRecognizer = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
     private lazy var pinchRecognizer = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch(_:)))
     private lazy var crosshairRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(handleCrosshair(_:)))
     private var lastPanX: CGFloat = 0
-    private var lastPinchScale: CGFloat = 1
-    private var visibleRange = (from: 0.0, to: 24.0)
 
     public override init(frame: CGRect) {
         super.init(frame: frame)
@@ -56,21 +122,30 @@ open class KRChartView: UIView {
         commonInit()
     }
 
+    deinit {
+        host.setHostActive(false)
+    }
+
     open func reloadData() {
-        updateVisibleRangeIfNeeded()
-        syncCandlesToBridge()
+        syncCandlesToHost()
         renderChart()
     }
 
     open func resetToDefaultPriceVolumeLayout() {
-        bridge.resetToDefaultPriceVolumeLayout()
-        bridge.isCrosshairEnabled = crosshairEnabled
-        reloadData()
+        host.resetToDefaultPriceVolumeLayout()
+        host.isCrosshairEnabled = crosshairEnabled
+        syncCandlesToHost()
+        renderChart()
     }
 
     open override func didMoveToWindow() {
         super.didMoveToWindow()
-        renderChart()
+        if window == nil {
+            host.setHostActive(false)
+        } else {
+            host.setHostActive(true)
+            renderChart()
+        }
     }
 
     open override func layoutSubviews() {
@@ -83,8 +158,10 @@ open class KRChartView: UIView {
         isOpaque = true
         contentScaleFactor = UIScreen.main.scale
 
-        bridge.isCrosshairEnabled = crosshairEnabled
-        bridge.resetToDefaultPriceVolumeLayout()
+        host.delegate = self
+        host.isCrosshairEnabled = crosshairEnabled
+        host.setScrollInteractionOptions(scrollInteractionOptions.hostValue)
+        host.resetToDefaultPriceVolumeLayout()
         configureGestures()
     }
 
@@ -98,7 +175,7 @@ open class KRChartView: UIView {
         addGestureRecognizer(crosshairRecognizer)
     }
 
-    private func makeBridgeCandles(from candles: [KRCandle]) -> [KRCandleValue] {
+    private func makeHostCandles(from candles: [KRCandle]) -> [KRCandleValue] {
         candles.map {
             var value = KRCandleValue()
             value.open = $0.open
@@ -110,83 +187,66 @@ open class KRChartView: UIView {
         }
     }
 
-    private func syncCandlesToBridge() {
-        let bridgeCandles = makeBridgeCandles(from: candles)
-        bridgeCandles.withUnsafeBufferPointer { buffer in
+    private func syncCandlesToHost() {
+        let hostCandles = makeHostCandles(from: candles)
+        hostCandles.withUnsafeBufferPointer { buffer in
             if let baseAddress = buffer.baseAddress {
-                bridge.setCandles(baseAddress, count: buffer.count)
+                host.setCandles(baseAddress, count: buffer.count)
             } else {
                 var empty = KRCandleValue()
                 withUnsafePointer(to: &empty) { pointer in
-                    bridge.setCandles(pointer, count: 0)
+                    host.setCandles(pointer, count: 0)
                 }
             }
-        }
-    }
-
-    private func updateVisibleRangeIfNeeded() {
-        if candles.isEmpty {
-            visibleRange = (0.0, 24.0)
-        } else {
-            let count = Double(candles.count)
-            visibleRange = (max(0.0, count - 24.0), count)
         }
     }
 
     private func renderChart() {
         guard !bounds.isEmpty else { return }
         guard let metalLayer = layer as? CAMetalLayer else { return }
-        bridge.render(to: metalLayer, size: bounds.size, scale: contentScaleFactor)
+        host.render(to: metalLayer, size: bounds.size, scale: contentScaleFactor)
     }
 
     @objc
     private func handlePan(_ recognizer: UIPanGestureRecognizer) {
         let location = recognizer.location(in: self)
-        if recognizer.state == .began {
-            lastPanX = location.x
-            return
-        }
 
-        if recognizer.state == .changed {
+        switch recognizer.state {
+        case .began:
+            lastPanX = location.x
+            host.handlePanBegan(atX: location.x, y: location.y)
+
+        case .changed:
             let deltaX = location.x - lastPanX
             lastPanX = location.x
-            let width = bounds.width
-            if width > 0 {
-                let viewportWidth = visibleRange.to - visibleRange.from
-                let deltaLogical = -(Double(deltaX / width) * viewportWidth)
-                visibleRange = (visibleRange.from + deltaLogical, visibleRange.to + deltaLogical)
-                bridge.scroll(by: deltaLogical)
-                renderChart()
-            }
-            return
-        }
+            host.handlePanChanged(deltaX: deltaX, deltaY: 0)
 
-        lastPanX = 0
+        case .ended, .cancelled, .failed:
+            let velocityX = recognizer.velocity(in: self).x
+            host.handlePanEnded(velocityX: velocityX, velocityY: 0)
+            lastPanX = 0
+
+        default:
+            break
+        }
     }
 
     @objc
     private func handlePinch(_ recognizer: UIPinchGestureRecognizer) {
-        if recognizer.state == .began {
-            lastPinchScale = recognizer.scale
-            return
-        }
-
-        if recognizer.state == .changed {
-            let deltaScale = recognizer.scale / max(lastPinchScale, 0.01)
-            lastPinchScale = recognizer.scale
+        switch recognizer.state {
+        case .began:
             let location = recognizer.location(in: self)
             let anchorRatio = bounds.width > 0 ? Float(location.x / bounds.width) : 0.5
-            let oldWidth = visibleRange.to - visibleRange.from
-            let newWidth = min(max(oldWidth / Double(deltaScale), 5.0), 512.0)
-            let anchorLogical = visibleRange.from + Double(anchorRatio) * oldWidth
-            visibleRange = (anchorLogical - Double(anchorRatio) * newWidth,
-                            anchorLogical + Double(1 - anchorRatio) * newWidth)
-            bridge.zoom(by: Double(deltaScale), anchorRatio: anchorRatio)
-            renderChart()
-            return
-        }
+            host.handlePinchBegan(anchorRatio: anchorRatio)
 
-        lastPinchScale = 1
+        case .changed:
+            let location = recognizer.location(in: self)
+            let anchorRatio = bounds.width > 0 ? Float(location.x / bounds.width) : 0.5
+            host.handlePinchChanged(scale: recognizer.scale, anchorRatio: anchorRatio)
+
+        default:
+            host.handlePinchEnded()
+        }
     }
 
     @objc
@@ -195,12 +255,18 @@ open class KRChartView: UIView {
 
         let location = recognizer.location(in: self)
         switch recognizer.state {
-        case .began, .changed:
-            bridge.updateCrosshairAt(x: Float(location.x), y: Float(location.y))
-            renderChart()
+        case .began:
+            host.handleLongPressBegan(atX: location.x, y: location.y)
+
+        case .changed:
+            host.handleLongPressMoved(toX: location.x, y: location.y)
+
         default:
-            bridge.clearCrosshair()
-            renderChart()
+            host.handleLongPressEnded()
         }
+    }
+
+    public func chartHostNeedsDisplay(_ host: KRIOSChartHost) {
+        renderChart()
     }
 }

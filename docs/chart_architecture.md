@@ -4,6 +4,10 @@
 
 目标不是把 API 一条条列出来，而是说明这套结构为什么这样拆、每层各自负责什么、以后应该沿着什么方向演进。
 
+如果你关注的是下一阶段的“交互运行时、跨平台 timer / frame source、平台宿主边界”设计，请继续看：
+
+- [docs/cross_platform_runtime_design.md](/Users/bytedance/Desktop/lark/kairo-private/docs/cross_platform_runtime_design.md)
+
 当前代码对应的主要目录：
 
 - `src/core`

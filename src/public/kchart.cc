@@ -18,6 +18,7 @@
 #include "include/core/SkCanvas.h"
 #include "include/core/SkColor.h"
 #include "pane.h"
+#include "scroll_interaction.h"
 #include "volume_series.h"
 
 namespace kairo {
@@ -44,6 +45,30 @@ std::string DefaultPaneIdForSeries(const KSeriesSpec& spec) {
   return "main";
 }
 
+ScrollBoundaryBehavior ToCoreBoundaryBehavior(KScrollBoundaryBehavior behavior) {
+  switch (behavior) {
+    case KScrollBoundaryBehavior::kClamp:
+      return ScrollBoundaryBehavior::kClamp;
+    case KScrollBoundaryBehavior::kBounce:
+      return ScrollBoundaryBehavior::kBounce;
+  }
+  return ScrollBoundaryBehavior::kBounce;
+}
+
+ScrollInteractionOptions ToCoreScrollOptions(const KScrollInteractionOptions& options) {
+  ScrollInteractionOptions core_options;
+  core_options.boundary_behavior = ToCoreBoundaryBehavior(options.boundary_behavior);
+  core_options.always_scrollable = options.always_scrollable;
+  core_options.allow_inertia = options.allow_inertia;
+  core_options.drag_sensitivity = options.drag_sensitivity;
+  core_options.overscroll_friction = options.overscroll_friction;
+  core_options.deceleration_rate = options.deceleration_rate;
+  core_options.spring.mass = options.spring.mass;
+  core_options.spring.stiffness = options.spring.stiffness;
+  core_options.spring.damping_ratio = options.spring.damping_ratio;
+  return core_options;
+}
+
 }  // namespace
 
 struct KChart::Impl {
@@ -53,16 +78,20 @@ struct KChart::Impl {
   };
 
   KChartOptions options;
+  KScrollInteractionOptions scroll_options;
   std::vector<KCandleEntry> candles;
   std::vector<KSeriesSpec> series_specs;
   KVisibleRange visible_range;
   bool has_explicit_visible_range = false;
+  bool scroll_gesture_active = false;
+  float device_scale_factor = 1.0f;
   float width = 0.0f;
   float height = 0.0f;
   std::shared_ptr<VectorCandleDataSource> data_source;
   std::unique_ptr<Chart> chart;
   CrosshairOverlay* crosshair_overlay = nullptr;
   std::vector<PaneBinding> pane_bindings;
+  ScrollInteractionController scroll_controller;
 
   void RebuildGraph();
   void UpdateBounds();
@@ -70,9 +99,17 @@ struct KChart::Impl {
   void ClearCrosshair();
   std::optional<std::size_t> FindPaneIndex(float screen_y) const;
   double ScreenToLogicalX(float screen_x) const;
+  double ViewportWidth() const;
+  double InteractionContentWidth() const;
+  double BarSpacingInputUnits() const;
+  double ScrollPositionInputUnits() const;
+  ScrollMetrics BuildScrollMetrics() const;
+  bool SetScrollPositionInputUnits(double position_input_units);
+  void StopScrollState();
 };
 
 KChart::KChart() : impl_(std::make_unique<Impl>()) {
+  impl_->scroll_controller.SetOptions(ToCoreScrollOptions(impl_->scroll_options));
   ResetToDefaultPriceVolumeLayout();
 }
 
@@ -83,6 +120,7 @@ KChart::KChart(KChart&&) noexcept = default;
 KChart& KChart::operator=(KChart&&) noexcept = default;
 
 void KChart::SetOptions(const KChartOptions& options) {
+  impl_->StopScrollState();
   impl_->options = options;
   for (KSeriesSpec& spec : impl_->series_specs) {
     if (spec.type == KSeriesType::kVolume &&
@@ -99,6 +137,7 @@ const KChartOptions& KChart::options() const {
 }
 
 void KChart::ResetToDefaultPriceVolumeLayout() {
+  impl_->StopScrollState();
   impl_->series_specs.clear();
 
   KSeriesSpec price;
@@ -125,6 +164,7 @@ bool KChart::AddSeries(const KSeriesSpec& spec) {
     return false;
   }
 
+  impl_->StopScrollState();
   auto it = std::find_if(
       impl_->series_specs.begin(), impl_->series_specs.end(), [&](const KSeriesSpec& current) {
         return current.id == spec.id;
@@ -140,6 +180,7 @@ bool KChart::AddSeries(const KSeriesSpec& spec) {
 }
 
 bool KChart::RemoveSeries(const std::string& series_id) {
+  impl_->StopScrollState();
   const auto before_size = impl_->series_specs.size();
   impl_->series_specs.erase(
       std::remove_if(
@@ -168,6 +209,7 @@ const std::vector<KSeriesSpec>& KChart::series_specs() const {
 }
 
 void KChart::SetData(std::vector<KCandleEntry> candles) {
+  impl_->StopScrollState();
   impl_->candles = std::move(candles);
   if (!impl_->has_explicit_visible_range) {
     const double count = static_cast<double>(impl_->candles.size());
@@ -191,11 +233,20 @@ void KChart::SetBounds(float width, float height) {
   impl_->UpdateBounds();
 }
 
+void KChart::SetDeviceScaleFactor(float scale) {
+  impl_->device_scale_factor = std::max(scale, 1.0f);
+}
+
+float KChart::device_scale_factor() const {
+  return impl_->device_scale_factor;
+}
+
 void KChart::SetVisibleRange(const KVisibleRange& range) {
   if (!range.IsValid()) {
     return;
   }
 
+  impl_->StopScrollState();
   impl_->visible_range = range;
   impl_->has_explicit_visible_range = true;
   if (impl_->chart != nullptr) {
@@ -208,6 +259,7 @@ KVisibleRange KChart::visible_range() const {
 }
 
 void KChart::ScrollBy(double delta_logical) {
+  impl_->StopScrollState();
   impl_->has_explicit_visible_range = true;
   if (impl_->chart != nullptr && impl_->chart->controller() != nullptr) {
     impl_->chart->controller()->ScrollBy(delta_logical);
@@ -217,6 +269,7 @@ void KChart::ScrollBy(double delta_logical) {
 }
 
 void KChart::ZoomBy(double scale_factor, float anchor_ratio) {
+  impl_->StopScrollState();
   impl_->has_explicit_visible_range = true;
   if (impl_->chart == nullptr || impl_->chart->controller() == nullptr) {
     return;
@@ -230,6 +283,64 @@ void KChart::ZoomBy(double scale_factor, float anchor_ratio) {
 
   const Viewport& viewport = impl_->chart->viewport();
   impl_->visible_range = KVisibleRange {viewport.visible_from, viewport.visible_to};
+}
+
+void KChart::SetScrollInteractionOptions(const KScrollInteractionOptions& options) {
+  impl_->StopScrollState();
+  impl_->scroll_options = options;
+  impl_->scroll_controller.SetOptions(ToCoreScrollOptions(options));
+}
+
+const KScrollInteractionOptions& KChart::scroll_interaction_options() const {
+  return impl_->scroll_options;
+}
+
+void KChart::BeginScrollGesture() {
+  impl_->scroll_gesture_active = true;
+  impl_->scroll_controller.BeginGesture(impl_->ScrollPositionInputUnits());
+}
+
+bool KChart::ScrollGestureByPixels(float delta_pixels) {
+  if (!impl_->scroll_gesture_active) {
+    BeginScrollGesture();
+  }
+
+  const ScrollMetrics metrics = impl_->BuildScrollMetrics();
+  const double position = impl_->scroll_controller.ApplyGestureDelta(-static_cast<double>(delta_pixels), metrics);
+  impl_->has_explicit_visible_range = true;
+  return impl_->SetScrollPositionInputUnits(position);
+}
+
+bool KChart::EndScrollGesture(float velocity_pixels_per_second) {
+  if (!impl_->scroll_gesture_active) {
+    BeginScrollGesture();
+  }
+
+  impl_->scroll_gesture_active = false;
+  const ScrollMetrics metrics = impl_->BuildScrollMetrics();
+  const bool active = impl_->scroll_controller.EndGesture(
+      -static_cast<double>(velocity_pixels_per_second), metrics);
+  impl_->has_explicit_visible_range = true;
+  impl_->SetScrollPositionInputUnits(impl_->scroll_controller.position());
+  return active;
+}
+
+bool KChart::StepScrollAnimation(double delta_seconds) {
+  const ScrollMetrics metrics = impl_->BuildScrollMetrics();
+  const bool active = impl_->scroll_controller.Advance(delta_seconds, metrics);
+  if (!active && !impl_->scroll_controller.IsActive()) {
+    impl_->scroll_gesture_active = false;
+  }
+  impl_->has_explicit_visible_range = true;
+  return impl_->SetScrollPositionInputUnits(impl_->scroll_controller.position()) && active;
+}
+
+bool KChart::IsScrollAnimationActive() const {
+  return impl_->scroll_controller.IsActive();
+}
+
+void KChart::StopScrollAnimation() {
+  impl_->StopScrollState();
 }
 
 void KChart::SetCrosshairEnabled(bool enabled) {
@@ -375,6 +486,64 @@ void KChart::Impl::UpdateBounds() {
 
   chart->SetBounds(SkRect::MakeWH(width, height));
   chart->SetViewport(Viewport {visible_range.from, visible_range.to});
+}
+
+double KChart::Impl::ViewportWidth() const {
+  return std::max(visible_range.to - visible_range.from, 1.0);
+}
+
+double KChart::Impl::InteractionContentWidth() const {
+  if (chart == nullptr) {
+    return 0.0;
+  }
+
+  const float content_width = chart->content_bounds().width();
+  if (content_width <= 0.0f) {
+    return 0.0;
+  }
+
+  return static_cast<double>(content_width) / std::max(device_scale_factor, 1.0f);
+}
+
+double KChart::Impl::BarSpacingInputUnits() const {
+  return InteractionContentWidth() / ViewportWidth();
+}
+
+double KChart::Impl::ScrollPositionInputUnits() const {
+  return visible_range.from * BarSpacingInputUnits();
+}
+
+ScrollMetrics KChart::Impl::BuildScrollMetrics() const {
+  ScrollMetrics metrics;
+  metrics.viewport_dimension = InteractionContentWidth();
+
+  const double bar_spacing = BarSpacingInputUnits();
+  if (bar_spacing <= 0.0) {
+    return metrics;
+  }
+
+  const double max_from = std::max(0.0, static_cast<double>(candles.size()) - ViewportWidth());
+  metrics.min_position = 0.0;
+  metrics.max_position = max_from * bar_spacing;
+  return metrics;
+}
+
+bool KChart::Impl::SetScrollPositionInputUnits(double position_input_units) {
+  const double bar_spacing = BarSpacingInputUnits();
+  if (chart == nullptr || bar_spacing <= 0.0) {
+    return false;
+  }
+
+  const double viewport_width = ViewportWidth();
+  visible_range.from = position_input_units / bar_spacing;
+  visible_range.to = visible_range.from + viewport_width;
+  chart->SetViewport(Viewport {visible_range.from, visible_range.to});
+  return true;
+}
+
+void KChart::Impl::StopScrollState() {
+  scroll_gesture_active = false;
+  scroll_controller.Stop();
 }
 
 void KChart::Impl::UpdateCrosshairAt(float screen_x, float screen_y) {

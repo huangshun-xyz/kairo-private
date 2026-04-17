@@ -68,13 +68,15 @@ add_executable(
   ViewController.mm
   MainView.swift
   main.mm
-  "${KAIRO_ROOT_DIR}/platform/ios/KRChartBridge.mm"
   "${KAIRO_ROOT_DIR}/platform/ios/KRChartView.swift"
 )
 
 target_include_directories(
   kairo_ios_demo
   PRIVATE
+    "${KAIRO_ROOT_DIR}/src/base"
+    "${KAIRO_ROOT_DIR}/src/runtime"
+    "${KAIRO_ROOT_DIR}/src/platform/ios"
     "${KAIRO_ROOT_DIR}/src/public"
     "${KAIRO_ROOT_DIR}/platform/ios"
 )
@@ -82,7 +84,7 @@ target_include_directories(
 target_link_libraries(
   kairo_ios_demo
   PRIVATE
-    kairo_public
+    kairo_platform_ios
     c++
     "${UIKIT_FRAMEWORK}"
     "${COREGRAPHICS_FRAMEWORK}"

@@ -34,6 +34,11 @@ enum class KSeriesType {
   kVolume,
 };
 
+enum class KScrollBoundaryBehavior {
+  kClamp,
+  kBounce,
+};
+
 enum class KPlacementKind {
   kMainPane,
   kNewPane,
@@ -72,6 +77,22 @@ struct KVisibleRange {
   }
 };
 
+struct KScrollSpringOptions {
+  double mass = 0.5;
+  double stiffness = 100.0;
+  double damping_ratio = 1.1;
+};
+
+struct KScrollInteractionOptions {
+  KScrollBoundaryBehavior boundary_behavior = KScrollBoundaryBehavior::kBounce;
+  bool always_scrollable = true;
+  bool allow_inertia = true;
+  double drag_sensitivity = 1.0;
+  double overscroll_friction = 0.52;
+  double deceleration_rate = 0.135;
+  KScrollSpringOptions spring;
+};
+
 struct KChartOptions {
   Insets content_insets {12.0f, 12.0f, 12.0f, 12.0f};
   float default_sub_pane_height = 96.0f;
@@ -101,10 +122,20 @@ class KChart {
   const std::vector<KCandleEntry>& data() const;
 
   void SetBounds(float width, float height);
+  void SetDeviceScaleFactor(float scale);
+  float device_scale_factor() const;
   void SetVisibleRange(const KVisibleRange& range);
   KVisibleRange visible_range() const;
   void ScrollBy(double delta_logical);
   void ZoomBy(double scale_factor, float anchor_ratio);
+  void SetScrollInteractionOptions(const KScrollInteractionOptions& options);
+  const KScrollInteractionOptions& scroll_interaction_options() const;
+  void BeginScrollGesture();
+  bool ScrollGestureByPixels(float delta_pixels);
+  bool EndScrollGesture(float velocity_pixels_per_second);
+  bool StepScrollAnimation(double delta_seconds);
+  bool IsScrollAnimationActive() const;
+  void StopScrollAnimation();
 
   void SetCrosshairEnabled(bool enabled);
   bool crosshair_enabled() const;
