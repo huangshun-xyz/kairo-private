@@ -63,15 +63,4 @@ void CrosshairOverlay::Draw(ChartRenderContext* ctx) {
   ctx->canvas->drawCircle(x, y, 3.0f, crosshair_paint);
 }
 
-bool CrosshairOverlay::HitTest(ChartRenderContext* ctx, SkPoint point, HitResult* result) {
-  if (!visible_ || ctx == nullptr || result == nullptr) {
-    return false;
-  }
-
-  result->position = point;
-  result->logical_x = logical_x_;
-  result->value = value_;
-  return false;
-}
-
 }  // namespace kairo

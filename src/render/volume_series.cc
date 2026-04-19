@@ -16,7 +16,7 @@ constexpr float kVolumeBarWidthRatio = 0.68f;
 
 }  // namespace
 
-VolumeSeries::VolumeSeries(std::shared_ptr<ICandleDataSource> data_source)
+VolumeSeries::VolumeSeries(std::shared_ptr<VectorCandleDataSource> data_source)
     : data_source_(std::move(data_source)) {}
 
 void VolumeSeries::SetUpColor(SkColor color) {

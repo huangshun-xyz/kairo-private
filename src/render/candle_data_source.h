@@ -14,25 +14,17 @@ struct CandleData {
   double volume = 0.0;
 };
 
-class ICandleDataSource {
- public:
-  virtual ~ICandleDataSource() = default;
-
-  virtual size_t GetCount() const = 0;
-  virtual bool GetCandle(size_t index, CandleData* out) const = 0;
-};
-
-class VectorCandleDataSource final : public ICandleDataSource {
+class VectorCandleDataSource {
  public:
   VectorCandleDataSource() = default;
   explicit VectorCandleDataSource(std::vector<CandleData> candles)
       : candles_(std::move(candles)) {}
 
-  size_t GetCount() const override {
+  size_t GetCount() const {
     return candles_.size();
   }
 
-  bool GetCandle(size_t index, CandleData* out) const override {
+  bool GetCandle(size_t index, CandleData* out) const {
     if (index >= candles_.size() || out == nullptr) {
       return false;
     }

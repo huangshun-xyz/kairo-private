@@ -10,7 +10,7 @@ namespace kairo {
 
 class CandleSeries final : public Series {
  public:
-  explicit CandleSeries(std::shared_ptr<ICandleDataSource> data_source);
+  explicit CandleSeries(std::shared_ptr<VectorCandleDataSource> data_source);
 
   void SetUpColor(SkColor color);
   void SetDownColor(SkColor color);
@@ -21,7 +21,7 @@ class CandleSeries final : public Series {
   bool HitTest(RenderContext* ctx, SkPoint point, HitResult* result) override;
 
  private:
-  std::shared_ptr<ICandleDataSource> data_source_;
+  std::shared_ptr<VectorCandleDataSource> data_source_;
   SkColor up_color_ = SkColorSetRGB(6, 176, 116);
   SkColor down_color_ = SkColorSetRGB(84, 82, 236);
   SkColor wick_color_ = SkColorSetRGB(197, 203, 213);

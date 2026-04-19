@@ -1,22 +1,23 @@
 #pragma once
 
-#include "y_scale.h"
+#include "include/core/SkRect.h"
+#include "range.h"
 
 namespace kairo {
 
-// 默认的 YScale 实现：数值在线性区间内映射到 pane 像素坐标。
-class LinearYScale final : public YScale {
+// Pane 内的线性纵轴。
+class LinearYScale {
  public:
   LinearYScale();
 
-  void SetRange(const Range& range) override;
-  const Range& range() const override;
+  void SetRange(const Range& range);
+  const Range& range() const;
 
-  void SetBounds(const SkRect& bounds) override;
-  const SkRect& bounds() const override;
+  void SetBounds(const SkRect& bounds);
+  const SkRect& bounds() const;
 
-  float ValueToScreen(double value) const override;
-  double ScreenToValue(float screen_y) const override;
+  float ValueToScreen(double value) const;
+  double ScreenToValue(float screen_y) const;
 
  private:
   Range range_;

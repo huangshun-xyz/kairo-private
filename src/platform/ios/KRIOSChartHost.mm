@@ -1,28 +1,13 @@
 #import "KRIOSChartHost.h"
 
-#include <cmath>
 #include <memory>
 #include <vector>
-
-#import <Metal/Metal.h>
-
-#include "include/core/SkCanvas.h"
-#include "include/core/SkColorSpace.h"
-#include "include/core/SkSurface.h"
-#include "include/gpu/ganesh/GrBackendSurface.h"
-#include "include/gpu/ganesh/GrDirectContext.h"
-#include "include/gpu/ganesh/SkSurfaceGanesh.h"
-#include "include/gpu/ganesh/mtl/GrMtlBackendSurface.h"
-#include "include/gpu/ganesh/mtl/GrMtlBackendContext.h"
-#include "include/gpu/ganesh/mtl/GrMtlDirectContext.h"
-#include "include/gpu/ganesh/mtl/GrMtlTypes.h"
 #include "chart_runtime.h"
 #include "display_link_frame_source.h"
 #include "invalidation_sink.h"
+#include "ios_metal_chart_renderer.h"
 #include "kchart.h"
-#include "main_run_loop_task_runner.h"
 #include "runtime_host.h"
-#include "system_tick_clock.h"
 
 @interface KRIOSChartHost ()
 
@@ -98,13 +83,9 @@ class HostInvalidationSink final : public kairo::KInvalidationSink {
 @implementation KRIOSChartHost {
   std::unique_ptr<kairo::KChart> _chart;
   std::unique_ptr<kairo::KChartRuntime> _runtime;
-  std::unique_ptr<kairo::SystemTickClock> _tickClock;
-  std::unique_ptr<kairo::MainRunLoopTaskRunner> _taskRunner;
   std::unique_ptr<kairo::DisplayLinkFrameSource> _frameSource;
   std::unique_ptr<HostInvalidationSink> _invalidationSink;
-  id<MTLDevice> _metalDevice;
-  id<MTLCommandQueue> _metalQueue;
-  sk_sp<GrDirectContext> _directContext;
+  std::unique_ptr<kairo::KRIOSMetalChartRenderer> _renderer;
   CGFloat _inputScale;
 }
 
@@ -116,31 +97,16 @@ class HostInvalidationSink final : public kairo::KInvalidationSink {
 
   _chart = std::make_unique<kairo::KChart>();
   _runtime = std::make_unique<kairo::KChartRuntime>(_chart.get());
-  _tickClock = std::make_unique<kairo::SystemTickClock>();
-  _taskRunner = std::make_unique<kairo::MainRunLoopTaskRunner>();
   _frameSource = std::make_unique<kairo::DisplayLinkFrameSource>();
   _invalidationSink = std::make_unique<HostInvalidationSink>(self);
+  _renderer = std::make_unique<kairo::KRIOSMetalChartRenderer>();
   _crosshairEnabled = YES;
   _inputScale = 1.0;
 
   _runtime->BindHost(kairo::KRuntimeHost {
-      _tickClock.get(),
-      _taskRunner.get(),
       _frameSource.get(),
       _invalidationSink.get(),
   });
-
-  _metalDevice = MTLCreateSystemDefaultDevice();
-  if (_metalDevice != nil) {
-    _metalQueue = [_metalDevice newCommandQueue];
-  }
-
-  if (_metalDevice != nil && _metalQueue != nil) {
-    GrMtlBackendContext backend_context = {};
-    backend_context.fDevice.retain((__bridge GrMTLHandle)_metalDevice);
-    backend_context.fQueue.retain((__bridge GrMTLHandle)_metalQueue);
-    _directContext = GrDirectContexts::MakeMetal(backend_context);
-  }
 
   return self;
 }
@@ -261,68 +227,12 @@ class HostInvalidationSink final : public kairo::KInvalidationSink {
 }
 
 - (void)renderToMetalLayer:(CAMetalLayer*)metalLayer size:(CGSize)size scale:(CGFloat)scale {
-  if (_chart == nullptr || _directContext == nullptr || _metalDevice == nil || _metalQueue == nil ||
-      metalLayer == nil || CGSizeEqualToSize(size, CGSizeZero)) {
+  if (_chart == nullptr || _renderer == nullptr || metalLayer == nil || CGSizeEqualToSize(size, CGSizeZero)) {
     return;
   }
 
-  const int pixel_width = static_cast<int>(std::lround(size.width * scale));
-  const int pixel_height = static_cast<int>(std::lround(size.height * scale));
-  if (pixel_width <= 0 || pixel_height <= 0) {
-    return;
-  }
-
-  metalLayer.device = _metalDevice;
-  metalLayer.pixelFormat = MTLPixelFormatBGRA8Unorm;
-  metalLayer.framebufferOnly = NO;
-  metalLayer.opaque = YES;
-  metalLayer.contentsScale = scale;
-  metalLayer.drawableSize =
-      CGSizeMake(static_cast<CGFloat>(pixel_width), static_cast<CGFloat>(pixel_height));
-  if ([metalLayer respondsToSelector:@selector(setAllowsNextDrawableTimeout:)]) {
-    metalLayer.allowsNextDrawableTimeout = NO;
-  }
-
-  id<CAMetalDrawable> current_drawable = [metalLayer nextDrawable];
-  if (current_drawable == nil) {
-    return;
-  }
-
-  GrMtlTextureInfo texture_info;
-  texture_info.fTexture.retain((__bridge GrMTLHandle)current_drawable.texture);
-  GrBackendRenderTarget backend_render_target =
-      GrBackendRenderTargets::MakeMtl(pixel_width, pixel_height, texture_info);
-
-  sk_sp<SkSurface> surface = SkSurfaces::WrapBackendRenderTarget(
-      _directContext.get(),
-      backend_render_target,
-      kTopLeft_GrSurfaceOrigin,
-      kBGRA_8888_SkColorType,
-      nullptr,
-      nullptr);
-  if (surface == nullptr) {
-    return;
-  }
-
-  SkCanvas* canvas = surface->getCanvas();
-  if (canvas == nullptr) {
-    return;
-  }
-
-  canvas->clear(SK_ColorWHITE);
   _inputScale = scale;
-  _chart->SetDeviceScaleFactor(static_cast<float>(scale));
-  _chart->SetBounds(static_cast<float>(pixel_width), static_cast<float>(pixel_height));
-  _chart->Draw(*canvas);
-  _directContext->flushAndSubmit(surface.get(), GrSyncCpu::kNo);
-
-  id<MTLCommandBuffer> command_buffer = [_metalQueue commandBuffer];
-  if (command_buffer == nil) {
-    return;
-  }
-
-  [command_buffer presentDrawable:current_drawable];
-  [command_buffer commit];
+  _renderer->RenderChart(*_chart, metalLayer, size, scale);
 }
 
 - (void)notifyNeedsDisplay {

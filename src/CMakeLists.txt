@@ -52,7 +52,6 @@ add_library(
   kairo_render
   STATIC
     render/candle_series.cc
-    render/crosshair_layer.cc
     render/crosshair_overlay.cc
     render/demo_chart_factory.cc
     render/grid_layer.cc
@@ -130,8 +129,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
     STATIC
       platform/ios/KRIOSChartHost.mm
       platform/ios/display_link_frame_source.mm
-      platform/ios/main_run_loop_task_runner.mm
-      platform/ios/system_tick_clock.mm
+      platform/ios/ios_metal_chart_renderer.mm
   )
   add_library(kairo::platform_ios ALIAS kairo_platform_ios)
 

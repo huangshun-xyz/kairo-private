@@ -1,8 +1,5 @@
 #pragma once
 
-#include "hit_result.h"
-#include "include/core/SkPoint.h"
-
 namespace kairo {
 
 struct RenderContext;
@@ -21,7 +18,6 @@ class Layer {
   }
 
   virtual void Draw(RenderContext* ctx) = 0;
-  virtual bool HitTest(RenderContext* ctx, SkPoint point, HitResult* result) = 0;
 };
 
 }  // namespace kairo

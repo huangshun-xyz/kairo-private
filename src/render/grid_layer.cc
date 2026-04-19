@@ -63,11 +63,4 @@ void GridLayer::Draw(RenderContext* ctx) {
   }
 }
 
-bool GridLayer::HitTest(RenderContext* ctx, SkPoint point, HitResult* result) {
-  (void)ctx;
-  (void)point;
-  (void)result;
-  return false;
-}
-
 }  // namespace kairo

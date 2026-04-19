@@ -12,7 +12,6 @@ class GridLayer final : public Layer {
 
   LayerDrawOrder draw_order() const override;
   void Draw(RenderContext* ctx) override;
-  bool HitTest(RenderContext* ctx, SkPoint point, HitResult* result) override;
 
  private:
   SkColor background_color_ = SK_ColorWHITE;

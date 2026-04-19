@@ -6,8 +6,8 @@
 #include "chart_overlay.h"
 #include "include/core/SkRect.h"
 #include "pane.h"
+#include "uniform_bar_x_scale.h"
 #include "viewport.h"
-#include "x_scale.h"
 
 class SkCanvas;
 
@@ -19,7 +19,6 @@ class ChartController;
 class Chart {
  public:
   Chart();
-  explicit Chart(std::unique_ptr<XScale> x_scale);
   ~Chart();
 
   Chart(const Chart&) = delete;
@@ -38,8 +37,8 @@ class Chart {
   void SetViewport(const Viewport& viewport);
   const Viewport& viewport() const;
 
-  XScale* x_scale();
-  const XScale* x_scale() const;
+  UniformBarXScale* x_scale();
+  const UniformBarXScale* x_scale() const;
 
   Pane* AddPane(std::unique_ptr<Pane> pane);
   std::vector<std::unique_ptr<Pane>>& panes();
@@ -62,7 +61,7 @@ class Chart {
   SkRect content_bounds_ = SkRect::MakeEmpty();
   Insets content_insets_;
   Viewport viewport_ {0.0, 24.0};
-  std::unique_ptr<XScale> x_scale_;
+  UniformBarXScale x_scale_;
   std::vector<std::unique_ptr<Pane>> panes_;
   std::vector<std::unique_ptr<ChartOverlay>> overlays_;
   std::unique_ptr<ChartController> controller_;

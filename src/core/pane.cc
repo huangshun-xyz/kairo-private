@@ -2,18 +2,11 @@
 
 #include <algorithm>
 
-#include "linear_y_scale.h"
-
 namespace kairo {
 
-Pane::Pane() : Pane(PaneLayout{}, std::make_unique<LinearYScale>()) {}
+Pane::Pane() : Pane(PaneLayout{}) {}
 
-Pane::Pane(std::unique_ptr<YScale> y_scale) : Pane(PaneLayout{}, std::move(y_scale)) {}
-
-Pane::Pane(const PaneLayout& layout) : Pane(layout, std::make_unique<LinearYScale>()) {}
-
-Pane::Pane(const PaneLayout& layout, std::unique_ptr<YScale> y_scale)
-    : y_scale_(std::move(y_scale)) {
+Pane::Pane(const PaneLayout& layout) {
   SetLayout(layout);
 }
 
@@ -38,21 +31,19 @@ const SkRect& Pane::frame_rect() const {
 
 void Pane::SetContentRect(const SkRect& rect) {
   content_rect_ = rect;
-  if (y_scale_ != nullptr) {
-    y_scale_->SetBounds(content_rect_);
-  }
+  y_scale_.SetBounds(content_rect_);
 }
 
 const SkRect& Pane::content_rect() const {
   return content_rect_;
 }
 
-YScale* Pane::y_scale() {
-  return y_scale_.get();
+LinearYScale* Pane::y_scale() {
+  return &y_scale_;
 }
 
-const YScale* Pane::y_scale() const {
-  return y_scale_.get();
+const LinearYScale* Pane::y_scale() const {
+  return &y_scale_;
 }
 
 void Pane::AddSeries(std::unique_ptr<Series> series) {
@@ -93,10 +84,8 @@ void Pane::UpdateAutoRange(const Viewport& viewport) {
     visible_range = Range(0.0, 1.0);
   }
 
-  if (y_scale_ != nullptr) {
-    y_scale_->SetBounds(content_rect_);
-    y_scale_->SetRange(visible_range.Expanded(0.08, 1.0));
-  }
+  y_scale_.SetBounds(content_rect_);
+  y_scale_.SetRange(visible_range.Expanded(0.08, 1.0));
 }
 
 }  // namespace kairo

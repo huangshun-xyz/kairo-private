@@ -5,7 +5,6 @@
 #include "chart_controller.h"
 #include "include/core/SkCanvas.h"
 #include "render_context.h"
-#include "uniform_bar_x_scale.h"
 
 namespace kairo {
 
@@ -29,9 +28,7 @@ float GetFixedHeight(const Pane& pane) {
 
 }  // namespace
 
-Chart::Chart() : Chart(std::make_unique<UniformBarXScale>()) {}
-
-Chart::Chart(std::unique_ptr<XScale> x_scale) : x_scale_(std::move(x_scale)) {
+Chart::Chart() {
   controller_ = std::make_unique<ChartController>(this);
 }
 
@@ -75,12 +72,12 @@ const Viewport& Chart::viewport() const {
   return viewport_;
 }
 
-XScale* Chart::x_scale() {
-  return x_scale_.get();
+UniformBarXScale* Chart::x_scale() {
+  return &x_scale_;
 }
 
-const XScale* Chart::x_scale() const {
-  return x_scale_.get();
+const UniformBarXScale* Chart::x_scale() const {
+  return &x_scale_;
 }
 
 Pane* Chart::AddPane(std::unique_ptr<Pane> pane) {
@@ -140,7 +137,7 @@ void Chart::Draw(SkCanvas& canvas) {
     ctx.chart_content_bounds = content_bounds_;
     ctx.pane_frame = pane->frame_rect();
     ctx.pane_content_bounds = pane->content_rect();
-    ctx.x_scale = x_scale_.get();
+    ctx.x_scale = &x_scale_;
     ctx.y_scale = pane->y_scale();
     ctx.viewport = &viewport_;
 
@@ -175,7 +172,7 @@ void Chart::Draw(SkCanvas& canvas) {
   chart_ctx.chart = this;
   chart_ctx.chart_bounds = bounds_;
   chart_ctx.chart_content_bounds = content_bounds_;
-  chart_ctx.x_scale = x_scale_.get();
+  chart_ctx.x_scale = &x_scale_;
   chart_ctx.viewport = &viewport_;
 
   canvas.save();
@@ -219,10 +216,8 @@ void Chart::LayoutPanes() {
 void Chart::SyncScales() {
   LayoutPanes();
 
-  if (x_scale_ != nullptr) {
-    x_scale_->SetViewport(viewport_);
-    x_scale_->SetBounds(content_bounds_);
-  }
+  x_scale_.SetViewport(viewport_);
+  x_scale_.SetBounds(content_bounds_);
 
   for (const auto& pane : panes_) {
     pane->UpdateAutoRange(viewport_);

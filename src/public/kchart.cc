@@ -2,8 +2,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <memory>
-#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -71,45 +69,8 @@ ScrollInteractionOptions ToCoreScrollOptions(const KScrollInteractionOptions& op
 
 }  // namespace
 
-struct KChart::Impl {
-  struct PaneBinding {
-    std::string pane_id;
-    std::vector<KSeriesType> series_types;
-  };
-
-  KChartOptions options;
-  KScrollInteractionOptions scroll_options;
-  std::vector<KCandleEntry> candles;
-  std::vector<KSeriesSpec> series_specs;
-  KVisibleRange visible_range;
-  bool has_explicit_visible_range = false;
-  bool scroll_gesture_active = false;
-  float device_scale_factor = 1.0f;
-  float width = 0.0f;
-  float height = 0.0f;
-  std::shared_ptr<VectorCandleDataSource> data_source;
-  std::unique_ptr<Chart> chart;
-  CrosshairOverlay* crosshair_overlay = nullptr;
-  std::vector<PaneBinding> pane_bindings;
-  ScrollInteractionController scroll_controller;
-
-  void RebuildGraph();
-  void UpdateBounds();
-  void UpdateCrosshairAt(float screen_x, float screen_y);
-  void ClearCrosshair();
-  std::optional<std::size_t> FindPaneIndex(float screen_y) const;
-  double ScreenToLogicalX(float screen_x) const;
-  double ViewportWidth() const;
-  double InteractionContentWidth() const;
-  double BarSpacingInputUnits() const;
-  double ScrollPositionInputUnits() const;
-  ScrollMetrics BuildScrollMetrics() const;
-  bool SetScrollPositionInputUnits(double position_input_units);
-  void StopScrollState();
-};
-
-KChart::KChart() : impl_(std::make_unique<Impl>()) {
-  impl_->scroll_controller.SetOptions(ToCoreScrollOptions(impl_->scroll_options));
+KChart::KChart() {
+  interaction_.scroll_controller.SetOptions(ToCoreScrollOptions(model_.scroll_options));
   ResetToDefaultPriceVolumeLayout();
 }
 
@@ -120,25 +81,25 @@ KChart::KChart(KChart&&) noexcept = default;
 KChart& KChart::operator=(KChart&&) noexcept = default;
 
 void KChart::SetOptions(const KChartOptions& options) {
-  impl_->StopScrollState();
-  impl_->options = options;
-  for (KSeriesSpec& spec : impl_->series_specs) {
+  StopScrollState();
+  model_.options = options;
+  for (KSeriesSpec& spec : model_.series_specs) {
     if (spec.type == KSeriesType::kVolume &&
         spec.placement.kind == KPlacementKind::kNewPane &&
         spec.placement.pane_height <= 0.0f) {
-      spec.placement.pane_height = impl_->options.default_sub_pane_height;
+      spec.placement.pane_height = model_.options.default_sub_pane_height;
     }
   }
-  impl_->RebuildGraph();
+  RebuildGraph();
 }
 
 const KChartOptions& KChart::options() const {
-  return impl_->options;
+  return model_.options;
 }
 
 void KChart::ResetToDefaultPriceVolumeLayout() {
-  impl_->StopScrollState();
-  impl_->series_specs.clear();
+  StopScrollState();
+  model_.series_specs.clear();
 
   KSeriesSpec price;
   price.id = "price";
@@ -152,11 +113,11 @@ void KChart::ResetToDefaultPriceVolumeLayout() {
   volume.type = KSeriesType::kVolume;
   volume.placement.kind = KPlacementKind::kNewPane;
   volume.placement.pane_id = "volume";
-  volume.placement.pane_height = impl_->options.default_sub_pane_height;
+  volume.placement.pane_height = model_.options.default_sub_pane_height;
 
-  impl_->series_specs.push_back(price);
-  impl_->series_specs.push_back(volume);
-  impl_->RebuildGraph();
+  model_.series_specs.push_back(price);
+  model_.series_specs.push_back(volume);
+  RebuildGraph();
 }
 
 bool KChart::AddSeries(const KSeriesSpec& spec) {
@@ -164,81 +125,81 @@ bool KChart::AddSeries(const KSeriesSpec& spec) {
     return false;
   }
 
-  impl_->StopScrollState();
+  StopScrollState();
   auto it = std::find_if(
-      impl_->series_specs.begin(), impl_->series_specs.end(), [&](const KSeriesSpec& current) {
+      model_.series_specs.begin(), model_.series_specs.end(), [&](const KSeriesSpec& current) {
         return current.id == spec.id;
       });
-  if (it != impl_->series_specs.end()) {
+  if (it != model_.series_specs.end()) {
     *it = spec;
   } else {
-    impl_->series_specs.push_back(spec);
+    model_.series_specs.push_back(spec);
   }
 
-  impl_->RebuildGraph();
+  RebuildGraph();
   return true;
 }
 
 bool KChart::RemoveSeries(const std::string& series_id) {
-  impl_->StopScrollState();
-  const auto before_size = impl_->series_specs.size();
-  impl_->series_specs.erase(
+  StopScrollState();
+  const auto before_size = model_.series_specs.size();
+  model_.series_specs.erase(
       std::remove_if(
-          impl_->series_specs.begin(),
-          impl_->series_specs.end(),
+          model_.series_specs.begin(),
+          model_.series_specs.end(),
           [&](const KSeriesSpec& spec) { return spec.id == series_id; }),
-      impl_->series_specs.end());
+      model_.series_specs.end());
 
-  if (impl_->series_specs.size() == before_size) {
+  if (model_.series_specs.size() == before_size) {
     return false;
   }
 
-  impl_->RebuildGraph();
+  RebuildGraph();
   return true;
 }
 
 bool KChart::HasSeries(const std::string& series_id) const {
   return std::any_of(
-      impl_->series_specs.begin(),
-      impl_->series_specs.end(),
+      model_.series_specs.begin(),
+      model_.series_specs.end(),
       [&](const KSeriesSpec& spec) { return spec.id == series_id; });
 }
 
 const std::vector<KSeriesSpec>& KChart::series_specs() const {
-  return impl_->series_specs;
+  return model_.series_specs;
 }
 
 void KChart::SetData(std::vector<KCandleEntry> candles) {
-  impl_->StopScrollState();
-  impl_->candles = std::move(candles);
-  if (!impl_->has_explicit_visible_range) {
-    const double count = static_cast<double>(impl_->candles.size());
+  StopScrollState();
+  model_.candles = std::move(candles);
+  if (!model_.has_explicit_visible_range) {
+    const double count = static_cast<double>(model_.candles.size());
     if (count <= 0.0) {
-      impl_->visible_range = KVisibleRange {0.0, 24.0};
+      model_.visible_range = KVisibleRange {0.0, 24.0};
     } else {
-      impl_->visible_range = KVisibleRange {std::max(0.0, count - 24.0), count};
+      model_.visible_range = KVisibleRange {std::max(0.0, count - 24.0), count};
     }
   }
 
-  impl_->RebuildGraph();
+  RebuildGraph();
 }
 
 const std::vector<KCandleEntry>& KChart::data() const {
-  return impl_->candles;
+  return model_.candles;
 }
 
 void KChart::SetBounds(float width, float height) {
-  impl_->width = std::max(width, 0.0f);
-  impl_->height = std::max(height, 0.0f);
-  impl_->UpdateBounds();
+  interaction_.width = std::max(width, 0.0f);
+  interaction_.height = std::max(height, 0.0f);
+  UpdateBounds();
 }
 
 void KChart::SetDeviceScaleFactor(float scale) {
-  impl_->device_scale_factor = std::max(scale, 1.0f);
+  interaction_.device_scale_factor = std::max(scale, 1.0f);
 }
 
 float KChart::device_scale_factor() const {
-  return impl_->device_scale_factor;
+  return interaction_.device_scale_factor;
 }
 
 void KChart::SetVisibleRange(const KVisibleRange& range) {
@@ -246,144 +207,144 @@ void KChart::SetVisibleRange(const KVisibleRange& range) {
     return;
   }
 
-  impl_->StopScrollState();
-  impl_->visible_range = range;
-  impl_->has_explicit_visible_range = true;
-  if (impl_->chart != nullptr) {
-    impl_->chart->SetViewport(Viewport {range.from, range.to});
+  StopScrollState();
+  model_.visible_range = range;
+  model_.has_explicit_visible_range = true;
+  if (graph_.chart != nullptr) {
+    graph_.chart->SetViewport(Viewport {range.from, range.to});
   }
 }
 
 KVisibleRange KChart::visible_range() const {
-  return impl_->visible_range;
+  return model_.visible_range;
 }
 
 void KChart::ScrollBy(double delta_logical) {
-  impl_->StopScrollState();
-  impl_->has_explicit_visible_range = true;
-  if (impl_->chart != nullptr && impl_->chart->controller() != nullptr) {
-    impl_->chart->controller()->ScrollBy(delta_logical);
-    const Viewport& viewport = impl_->chart->viewport();
-    impl_->visible_range = KVisibleRange {viewport.visible_from, viewport.visible_to};
+  StopScrollState();
+  model_.has_explicit_visible_range = true;
+  if (graph_.chart != nullptr && graph_.chart->controller() != nullptr) {
+    graph_.chart->controller()->ScrollBy(delta_logical);
+    const Viewport& viewport = graph_.chart->viewport();
+    model_.visible_range = KVisibleRange {viewport.visible_from, viewport.visible_to};
   }
 }
 
 void KChart::ZoomBy(double scale_factor, float anchor_ratio) {
-  impl_->StopScrollState();
-  impl_->has_explicit_visible_range = true;
-  if (impl_->chart == nullptr || impl_->chart->controller() == nullptr) {
+  StopScrollState();
+  model_.has_explicit_visible_range = true;
+  if (graph_.chart == nullptr || graph_.chart->controller() == nullptr) {
     return;
   }
 
-  const SkRect& content_bounds = impl_->chart->content_bounds();
+  const SkRect& content_bounds = graph_.chart->content_bounds();
   const float clamped_ratio = std::clamp(anchor_ratio, 0.0f, 1.0f);
   const float anchor_x = content_bounds.left() + (content_bounds.width() * clamped_ratio);
-  const double logical_anchor = impl_->ScreenToLogicalX(anchor_x);
-  impl_->chart->controller()->ZoomBy(scale_factor, logical_anchor);
+  const double logical_anchor = ScreenToLogicalX(anchor_x);
+  graph_.chart->controller()->ZoomBy(scale_factor, logical_anchor);
 
-  const Viewport& viewport = impl_->chart->viewport();
-  impl_->visible_range = KVisibleRange {viewport.visible_from, viewport.visible_to};
+  const Viewport& viewport = graph_.chart->viewport();
+  model_.visible_range = KVisibleRange {viewport.visible_from, viewport.visible_to};
 }
 
 void KChart::SetScrollInteractionOptions(const KScrollInteractionOptions& options) {
-  impl_->StopScrollState();
-  impl_->scroll_options = options;
-  impl_->scroll_controller.SetOptions(ToCoreScrollOptions(options));
+  StopScrollState();
+  model_.scroll_options = options;
+  interaction_.scroll_controller.SetOptions(ToCoreScrollOptions(options));
 }
 
 const KScrollInteractionOptions& KChart::scroll_interaction_options() const {
-  return impl_->scroll_options;
+  return model_.scroll_options;
 }
 
-void KChart::BeginScrollGesture() {
-  impl_->scroll_gesture_active = true;
-  impl_->scroll_controller.BeginGesture(impl_->ScrollPositionInputUnits());
+void KChart::BeginScrollGestureInternal() {
+  interaction_.scroll_gesture_active = true;
+  interaction_.scroll_controller.BeginGesture(ScrollPositionInputUnits());
 }
 
-bool KChart::ScrollGestureByPixels(float delta_pixels) {
-  if (!impl_->scroll_gesture_active) {
-    BeginScrollGesture();
+bool KChart::ScrollGestureByPixelsInternal(float delta_pixels) {
+  if (!interaction_.scroll_gesture_active) {
+    BeginScrollGestureInternal();
   }
 
-  const ScrollMetrics metrics = impl_->BuildScrollMetrics();
-  const double position = impl_->scroll_controller.ApplyGestureDelta(-static_cast<double>(delta_pixels), metrics);
-  impl_->has_explicit_visible_range = true;
-  return impl_->SetScrollPositionInputUnits(position);
+  const ScrollMetrics metrics = BuildScrollMetrics();
+  const double position = interaction_.scroll_controller.ApplyGestureDelta(-static_cast<double>(delta_pixels), metrics);
+  model_.has_explicit_visible_range = true;
+  return SetScrollPositionInputUnits(position);
 }
 
-bool KChart::EndScrollGesture(float velocity_pixels_per_second) {
-  if (!impl_->scroll_gesture_active) {
-    BeginScrollGesture();
+bool KChart::EndScrollGestureInternal(float velocity_pixels_per_second) {
+  if (!interaction_.scroll_gesture_active) {
+    BeginScrollGestureInternal();
   }
 
-  impl_->scroll_gesture_active = false;
-  const ScrollMetrics metrics = impl_->BuildScrollMetrics();
-  const bool active = impl_->scroll_controller.EndGesture(
+  interaction_.scroll_gesture_active = false;
+  const ScrollMetrics metrics = BuildScrollMetrics();
+  const bool active = interaction_.scroll_controller.EndGesture(
       -static_cast<double>(velocity_pixels_per_second), metrics);
-  impl_->has_explicit_visible_range = true;
-  impl_->SetScrollPositionInputUnits(impl_->scroll_controller.position());
+  model_.has_explicit_visible_range = true;
+  SetScrollPositionInputUnits(interaction_.scroll_controller.position());
   return active;
 }
 
-bool KChart::StepScrollAnimation(double delta_seconds) {
-  const ScrollMetrics metrics = impl_->BuildScrollMetrics();
-  const bool active = impl_->scroll_controller.Advance(delta_seconds, metrics);
-  if (!active && !impl_->scroll_controller.IsActive()) {
-    impl_->scroll_gesture_active = false;
+bool KChart::StepScrollAnimationInternal(double delta_seconds) {
+  const ScrollMetrics metrics = BuildScrollMetrics();
+  const bool active = interaction_.scroll_controller.Advance(delta_seconds, metrics);
+  if (!active && !interaction_.scroll_controller.IsActive()) {
+    interaction_.scroll_gesture_active = false;
   }
-  impl_->has_explicit_visible_range = true;
-  return impl_->SetScrollPositionInputUnits(impl_->scroll_controller.position()) && active;
+  model_.has_explicit_visible_range = true;
+  return SetScrollPositionInputUnits(interaction_.scroll_controller.position()) && active;
 }
 
-bool KChart::IsScrollAnimationActive() const {
-  return impl_->scroll_controller.IsActive();
+bool KChart::IsScrollAnimationActiveInternal() const {
+  return interaction_.scroll_controller.IsActive();
 }
 
-void KChart::StopScrollAnimation() {
-  impl_->StopScrollState();
+void KChart::StopScrollAnimationInternal() {
+  StopScrollState();
 }
 
 void KChart::SetCrosshairEnabled(bool enabled) {
-  impl_->options.crosshair_enabled = enabled;
+  model_.options.crosshair_enabled = enabled;
   if (!enabled) {
-    impl_->ClearCrosshair();
+    ClearCrosshairInternal();
   }
 }
 
 bool KChart::crosshair_enabled() const {
-  return impl_->options.crosshair_enabled;
+  return model_.options.crosshair_enabled;
 }
 
 void KChart::UpdateCrosshair(float screen_x, float screen_y) {
-  impl_->UpdateCrosshairAt(screen_x, screen_y);
+  UpdateCrosshairAt(screen_x, screen_y);
 }
 
 void KChart::ClearCrosshair() {
-  impl_->ClearCrosshair();
+  ClearCrosshairInternal();
 }
 
 void KChart::Draw(SkCanvas& canvas) {
-  if (impl_->chart == nullptr) {
+  if (graph_.chart == nullptr) {
     return;
   }
 
-  impl_->UpdateBounds();
-  impl_->chart->Draw(canvas);
+  UpdateBounds();
+  graph_.chart->Draw(canvas);
 }
 
-void KChart::Impl::RebuildGraph() {
+void KChart::RebuildGraph() {
   std::vector<CandleData> core_candles;
-  core_candles.reserve(candles.size());
-  for (const KCandleEntry& candle : candles) {
+  core_candles.reserve(model_.candles.size());
+  for (const KCandleEntry& candle : model_.candles) {
     core_candles.push_back(ToCoreCandle(candle));
   }
 
-  data_source = std::make_shared<VectorCandleDataSource>(std::move(core_candles));
-  chart = std::make_unique<Chart>();
-  chart->SetContentInsets(options.content_insets);
-  chart->SetViewport(Viewport {visible_range.from, visible_range.to});
+  graph_.data_source = std::make_shared<VectorCandleDataSource>(std::move(core_candles));
+  graph_.chart = std::make_unique<Chart>();
+  graph_.chart->SetContentInsets(model_.options.content_insets);
+  graph_.chart->SetViewport(Viewport {model_.visible_range.from, model_.visible_range.to});
 
-  pane_bindings.clear();
+  graph_.pane_bindings.clear();
   std::unordered_map<std::string, Pane*> pane_map;
   std::unordered_map<std::string, std::size_t> pane_index_map;
   std::unordered_map<std::string, std::string> series_to_pane_map;
@@ -400,15 +361,16 @@ void KChart::Impl::RebuildGraph() {
       layout.insets.bottom = 4.0f;
     } else {
       layout.size_mode = PaneSizeMode::kFixed;
-      layout.height = placement.pane_height > 0.0f ? placement.pane_height : options.default_sub_pane_height;
+      layout.height =
+          placement.pane_height > 0.0f ? placement.pane_height : model_.options.default_sub_pane_height;
       layout.insets.top = 4.0f;
     }
 
     auto pane = std::make_unique<Pane>(layout);
     pane->AddLayer(std::make_unique<GridLayer>());
-    Pane* pane_ptr = chart->AddPane(std::move(pane));
-    pane_index_map[pane_id] = pane_bindings.size();
-    pane_bindings.push_back(PaneBinding {pane_id, {}});
+    Pane* pane_ptr = graph_.chart->AddPane(std::move(pane));
+    pane_index_map[pane_id] = graph_.pane_bindings.size();
+    graph_.pane_bindings.push_back(PaneBinding {pane_id, {}});
     pane_map[pane_id] = pane_ptr;
     return pane_ptr;
   };
@@ -432,7 +394,7 @@ void KChart::Impl::RebuildGraph() {
     return std::string("main");
   };
 
-  for (const KSeriesSpec& spec : series_specs) {
+  for (const KSeriesSpec& spec : model_.series_specs) {
     if (!spec.visible) {
       continue;
     }
@@ -445,7 +407,7 @@ void KChart::Impl::RebuildGraph() {
 
     switch (spec.type) {
       case KSeriesType::kCandles: {
-        auto series = std::make_unique<CandleSeries>(data_source);
+        auto series = std::make_unique<CandleSeries>(graph_.data_source);
         series->SetUpColor(ToSkColor(spec.style.primary_color));
         series->SetDownColor(ToSkColor(spec.style.secondary_color));
         series->SetWickColor(ToSkColor(spec.style.tertiary_color));
@@ -453,7 +415,7 @@ void KChart::Impl::RebuildGraph() {
         break;
       }
       case KSeriesType::kVolume: {
-        auto series = std::make_unique<VolumeSeries>(data_source);
+        auto series = std::make_unique<VolumeSeries>(graph_.data_source);
         series->SetUpColor(ToSkColor(spec.style.primary_color));
         series->SetDownColor(ToSkColor(spec.style.secondary_color));
         pane->AddSeries(std::move(series));
@@ -464,56 +426,56 @@ void KChart::Impl::RebuildGraph() {
     series_to_pane_map[spec.id] = pane_id;
     auto index_it = pane_index_map.find(pane_id);
     if (index_it != pane_index_map.end()) {
-      pane_bindings[index_it->second].series_types.push_back(spec.type);
+      graph_.pane_bindings[index_it->second].series_types.push_back(spec.type);
     }
   }
 
-  crosshair_overlay = nullptr;
-  if (options.crosshair_enabled) {
+  graph_.crosshair_overlay = nullptr;
+  if (model_.options.crosshair_enabled) {
     auto crosshair = std::make_unique<CrosshairOverlay>();
     crosshair->SetVisible(false);
-    crosshair_overlay = crosshair.get();
-    chart->AddOverlay(std::move(crosshair));
+    graph_.crosshair_overlay = crosshair.get();
+    graph_.chart->AddOverlay(std::move(crosshair));
   }
 
   UpdateBounds();
 }
 
-void KChart::Impl::UpdateBounds() {
-  if (chart == nullptr) {
+void KChart::UpdateBounds() {
+  if (graph_.chart == nullptr) {
     return;
   }
 
-  chart->SetBounds(SkRect::MakeWH(width, height));
-  chart->SetViewport(Viewport {visible_range.from, visible_range.to});
+  graph_.chart->SetBounds(SkRect::MakeWH(interaction_.width, interaction_.height));
+  graph_.chart->SetViewport(Viewport {model_.visible_range.from, model_.visible_range.to});
 }
 
-double KChart::Impl::ViewportWidth() const {
-  return std::max(visible_range.to - visible_range.from, 1.0);
+double KChart::ViewportWidth() const {
+  return std::max(model_.visible_range.to - model_.visible_range.from, 1.0);
 }
 
-double KChart::Impl::InteractionContentWidth() const {
-  if (chart == nullptr) {
+double KChart::InteractionContentWidth() const {
+  if (graph_.chart == nullptr) {
     return 0.0;
   }
 
-  const float content_width = chart->content_bounds().width();
+  const float content_width = graph_.chart->content_bounds().width();
   if (content_width <= 0.0f) {
     return 0.0;
   }
 
-  return static_cast<double>(content_width) / std::max(device_scale_factor, 1.0f);
+  return static_cast<double>(content_width) / std::max(interaction_.device_scale_factor, 1.0f);
 }
 
-double KChart::Impl::BarSpacingInputUnits() const {
+double KChart::BarSpacingInputUnits() const {
   return InteractionContentWidth() / ViewportWidth();
 }
 
-double KChart::Impl::ScrollPositionInputUnits() const {
-  return visible_range.from * BarSpacingInputUnits();
+double KChart::ScrollPositionInputUnits() const {
+  return model_.visible_range.from * BarSpacingInputUnits();
 }
 
-ScrollMetrics KChart::Impl::BuildScrollMetrics() const {
+ScrollMetrics KChart::BuildScrollMetrics() const {
   ScrollMetrics metrics;
   metrics.viewport_dimension = InteractionContentWidth();
 
@@ -522,68 +484,69 @@ ScrollMetrics KChart::Impl::BuildScrollMetrics() const {
     return metrics;
   }
 
-  const double max_from = std::max(0.0, static_cast<double>(candles.size()) - ViewportWidth());
+  const double max_from = std::max(0.0, static_cast<double>(model_.candles.size()) - ViewportWidth());
   metrics.min_position = 0.0;
   metrics.max_position = max_from * bar_spacing;
   return metrics;
 }
 
-bool KChart::Impl::SetScrollPositionInputUnits(double position_input_units) {
+bool KChart::SetScrollPositionInputUnits(double position_input_units) {
   const double bar_spacing = BarSpacingInputUnits();
-  if (chart == nullptr || bar_spacing <= 0.0) {
+  if (graph_.chart == nullptr || bar_spacing <= 0.0) {
     return false;
   }
 
   const double viewport_width = ViewportWidth();
-  visible_range.from = position_input_units / bar_spacing;
-  visible_range.to = visible_range.from + viewport_width;
-  chart->SetViewport(Viewport {visible_range.from, visible_range.to});
+  model_.visible_range.from = position_input_units / bar_spacing;
+  model_.visible_range.to = model_.visible_range.from + viewport_width;
+  graph_.chart->SetViewport(Viewport {model_.visible_range.from, model_.visible_range.to});
   return true;
 }
 
-void KChart::Impl::StopScrollState() {
-  scroll_gesture_active = false;
-  scroll_controller.Stop();
+void KChart::StopScrollState() {
+  interaction_.scroll_gesture_active = false;
+  interaction_.scroll_controller.Stop();
 }
 
-void KChart::Impl::UpdateCrosshairAt(float screen_x, float screen_y) {
-  if (!options.crosshair_enabled || chart == nullptr || crosshair_overlay == nullptr || candles.empty()) {
+void KChart::UpdateCrosshairAt(float screen_x, float screen_y) {
+  if (!model_.options.crosshair_enabled || graph_.chart == nullptr || graph_.crosshair_overlay == nullptr ||
+      model_.candles.empty()) {
     return;
   }
 
   const std::optional<std::size_t> pane_index = FindPaneIndex(screen_y);
   if (!pane_index.has_value()) {
-    crosshair_overlay->SetVisible(false);
+    graph_.crosshair_overlay->SetVisible(false);
     return;
   }
 
   const double logical_x = std::clamp(
-      std::round(ScreenToLogicalX(screen_x)), 0.0, static_cast<double>(candles.size() - 1));
-  const KCandleEntry& candle = candles[static_cast<std::size_t>(logical_x)];
+      std::round(ScreenToLogicalX(screen_x)), 0.0, static_cast<double>(model_.candles.size() - 1));
+  const KCandleEntry& candle = model_.candles[static_cast<std::size_t>(logical_x)];
 
   double crosshair_value = candle.close;
-  const PaneBinding& binding = pane_bindings[*pane_index];
+  const PaneBinding& binding = graph_.pane_bindings[*pane_index];
   if (std::find(binding.series_types.begin(), binding.series_types.end(), KSeriesType::kVolume) !=
       binding.series_types.end()) {
     crosshair_value = candle.volume;
   }
 
-  crosshair_overlay->SetVisible(true);
-  crosshair_overlay->SetCrosshair(*pane_index, logical_x, crosshair_value);
+  graph_.crosshair_overlay->SetVisible(true);
+  graph_.crosshair_overlay->SetCrosshair(*pane_index, logical_x, crosshair_value);
 }
 
-void KChart::Impl::ClearCrosshair() {
-  if (crosshair_overlay != nullptr) {
-    crosshair_overlay->SetVisible(false);
+void KChart::ClearCrosshairInternal() {
+  if (graph_.crosshair_overlay != nullptr) {
+    graph_.crosshair_overlay->SetVisible(false);
   }
 }
 
-std::optional<std::size_t> KChart::Impl::FindPaneIndex(float screen_y) const {
-  if (chart == nullptr) {
+std::optional<std::size_t> KChart::FindPaneIndex(float screen_y) const {
+  if (graph_.chart == nullptr) {
     return std::nullopt;
   }
 
-  const auto& panes = chart->panes();
+  const auto& panes = graph_.chart->panes();
   for (std::size_t index = 0; index < panes.size(); ++index) {
     const Pane* pane = panes[index].get();
     if (pane == nullptr) {
@@ -599,21 +562,21 @@ std::optional<std::size_t> KChart::Impl::FindPaneIndex(float screen_y) const {
   return std::nullopt;
 }
 
-double KChart::Impl::ScreenToLogicalX(float screen_x) const {
-  if (chart == nullptr) {
-    return visible_range.from;
+double KChart::ScreenToLogicalX(float screen_x) const {
+  if (graph_.chart == nullptr) {
+    return model_.visible_range.from;
   }
 
-  const SkRect& bounds = chart->content_bounds();
-  const double width_value = std::max(visible_range.to - visible_range.from, 1.0);
+  const SkRect& bounds = graph_.chart->content_bounds();
+  const double width_value = std::max(model_.visible_range.to - model_.visible_range.from, 1.0);
   const float bar_spacing = bounds.width() > 0.0f
       ? (bounds.width() / static_cast<float>(width_value))
       : 1.0f;
   if (bar_spacing <= 0.0f) {
-    return visible_range.from;
+    return model_.visible_range.from;
   }
 
-  return visible_range.from + ((screen_x - bounds.left()) / bar_spacing) - 0.5;
+  return model_.visible_range.from + ((screen_x - bounds.left()) / bar_spacing) - 0.5;
 }
 
 }  // namespace kairo

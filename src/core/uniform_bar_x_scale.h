@@ -1,23 +1,24 @@
 #pragma once
 
-#include "x_scale.h"
+#include "include/core/SkRect.h"
+#include "viewport.h"
 
 namespace kairo {
 
-// 默认的 XScale 实现：可视区内每根 bar 使用统一间距。
-class UniformBarXScale final : public XScale {
+// 共享横轴：可视区内每根 bar 使用统一间距。
+class UniformBarXScale {
  public:
   UniformBarXScale();
 
-  void SetViewport(const Viewport& viewport) override;
-  const Viewport& viewport() const override;
+  void SetViewport(const Viewport& viewport);
+  const Viewport& viewport() const;
 
-  void SetBounds(const SkRect& bounds) override;
-  const SkRect& bounds() const override;
+  void SetBounds(const SkRect& bounds);
+  const SkRect& bounds() const;
 
-  float DataToScreen(double logical_x) const override;
-  double ScreenToData(float screen_x) const override;
-  float BarSpacing() const override;
+  float DataToScreen(double logical_x) const;
+  double ScreenToData(float screen_x) const;
+  float BarSpacing() const;
 
  private:
   void UpdateMetrics();

@@ -14,7 +14,6 @@ class CrosshairOverlay final : public ChartOverlay {
   void SetColor(SkColor color);
 
   void Draw(ChartRenderContext* ctx) override;
-  bool HitTest(ChartRenderContext* ctx, SkPoint point, HitResult* result) override;
 
  private:
   SkColor color_ = SkColorSetARGB(190, 30, 99, 255);

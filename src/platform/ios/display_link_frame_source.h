@@ -1,8 +1,12 @@
 #pragma once
 
-#include <memory>
+#include <cstdint>
+#include <vector>
 
 #include "frame_source.h"
+
+@class CADisplayLink;
+@class KairoDisplayLinkTarget;
 
 namespace kairo {
 
@@ -13,10 +17,16 @@ class DisplayLinkFrameSource final : public KFrameSource {
 
   void AddObserver(KFrameObserver* observer) override;
   void RemoveObserver(KFrameObserver* observer) override;
+  void OnDisplayLink(CADisplayLink* display_link);
 
  private:
-  struct Impl;
-  std::unique_ptr<Impl> impl_;
+  void Start();
+  void Stop();
+
+  std::vector<KFrameObserver*> observers_;
+  uint64_t sequence_ = 0;
+  CADisplayLink* display_link_ = nullptr;
+  KairoDisplayLinkTarget* target_ = nullptr;
 };
 
 }  // namespace kairo

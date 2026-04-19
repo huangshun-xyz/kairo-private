@@ -17,7 +17,7 @@ constexpr float kCandleWidthRatio = 0.68f;
 
 }  // namespace
 
-CandleSeries::CandleSeries(std::shared_ptr<ICandleDataSource> data_source)
+CandleSeries::CandleSeries(std::shared_ptr<VectorCandleDataSource> data_source)
     : data_source_(std::move(data_source)) {}
 
 void CandleSeries::SetUpColor(SkColor color) {

@@ -30,7 +30,7 @@ void KScrollAnimator::Cancel() {
   pan_active_ = false;
   StopAnimation();
   if (chart_ != nullptr) {
-    chart_->StopScrollAnimation();
+    chart_->StopScrollAnimationInternal();
   }
 }
 
@@ -47,8 +47,8 @@ void KScrollAnimator::OnPanBegin(float x, float y) {
   }
 
   StopAnimation();
-  chart_->StopScrollAnimation();
-  chart_->BeginScrollGesture();
+  chart_->StopScrollAnimationInternal();
+  chart_->BeginScrollGestureInternal();
   pan_active_ = true;
 }
 
@@ -63,7 +63,7 @@ void KScrollAnimator::OnPanUpdate(float delta_x, float delta_y) {
     OnPanBegin(0.0f, 0.0f);
   }
 
-  if (chart_->ScrollGestureByPixels(delta_x)) {
+  if (chart_->ScrollGestureByPixelsInternal(delta_x)) {
     RequestRedraw();
   }
 }
@@ -80,7 +80,7 @@ void KScrollAnimator::OnPanEnd(float velocity_x, float velocity_y) {
   }
 
   pan_active_ = false;
-  const bool active = chart_->EndScrollGesture(velocity_x);
+  const bool active = chart_->EndScrollGestureInternal(velocity_x);
   RequestRedraw();
   if (active) {
     StartAnimation();
@@ -104,9 +104,9 @@ void KScrollAnimator::OnFrame(const KFrameArgs& args) {
   delta_seconds = ClampFrameDelta(delta_seconds);
   last_frame_time_ = args.frame_time;
 
-  const bool active = chart_->StepScrollAnimation(delta_seconds);
+  const bool active = chart_->StepScrollAnimationInternal(delta_seconds);
   RequestRedraw();
-  if (!active || !chart_->IsScrollAnimationActive()) {
+  if (!active || !chart_->IsScrollAnimationActiveInternal()) {
     StopAnimation();
   }
 }
