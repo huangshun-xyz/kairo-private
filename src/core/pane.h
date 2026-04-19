@@ -3,6 +3,7 @@
 #include <memory>
 #include <vector>
 
+#include "include/core/SkColor.h"
 #include "include/core/SkRect.h"
 #include "layer.h"
 #include "linear_y_scale.h"
@@ -32,6 +33,9 @@ class Pane {
   void SetContentRect(const SkRect& rect);
   const SkRect& content_rect() const;
 
+  void SetBackgroundColor(SkColor color);
+  SkColor background_color() const;
+
   LinearYScale* y_scale();
   const LinearYScale* y_scale() const;
 
@@ -50,6 +54,7 @@ class Pane {
   PaneLayout layout_;
   SkRect frame_rect_ = SkRect::MakeEmpty();
   SkRect content_rect_ = SkRect::MakeEmpty();
+  SkColor background_color_ = SK_ColorWHITE;
   LinearYScale y_scale_;
   std::vector<std::unique_ptr<Series>> series_;
   std::vector<std::unique_ptr<Layer>> layers_;

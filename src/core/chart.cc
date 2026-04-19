@@ -4,6 +4,7 @@
 
 #include "chart_controller.h"
 #include "include/core/SkCanvas.h"
+#include "include/core/SkPaint.h"
 #include "render_context.h"
 
 namespace kairo {
@@ -147,6 +148,10 @@ void Chart::Draw(SkCanvas& canvas) {
 
     canvas.save();
     canvas.clipRect(ctx.pane_content_bounds);
+
+    SkPaint background_paint;
+    background_paint.setColor(pane->background_color());
+    canvas.drawRect(ctx.pane_content_bounds, background_paint);
 
     for (const auto& layer : pane->layers()) {
       if (layer->draw_order() == LayerDrawOrder::kUnderlay) {

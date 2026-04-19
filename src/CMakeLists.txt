@@ -77,6 +77,8 @@ add_library(
   kairo_public
   STATIC
     public/kchart.cc
+    public/kchart_graph.cc
+    public/kchart_interaction.cc
 )
 add_library(kairo::public ALIAS kairo_public)
 

@@ -17,10 +17,6 @@ constexpr int kGridColumns = 4;
 
 }  // namespace
 
-void GridLayer::SetBackgroundColor(SkColor color) {
-  background_color_ = color;
-}
-
 void GridLayer::SetGridLineColor(SkColor color) {
   grid_line_color_ = color;
 }
@@ -33,10 +29,6 @@ void GridLayer::Draw(RenderContext* ctx) {
   if (ctx == nullptr || ctx->canvas == nullptr) {
     return;
   }
-
-  SkPaint background_paint;
-  background_paint.setColor(background_color_);
-  ctx->canvas->drawRect(ctx->pane_content_bounds, background_paint);
 
   SkPaint grid_paint;
   grid_paint.setAntiAlias(true);

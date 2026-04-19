@@ -38,6 +38,14 @@ const SkRect& Pane::content_rect() const {
   return content_rect_;
 }
 
+void Pane::SetBackgroundColor(SkColor color) {
+  background_color_ = color;
+}
+
+SkColor Pane::background_color() const {
+  return background_color_;
+}
+
 LinearYScale* Pane::y_scale() {
   return &y_scale_;
 }
@@ -84,8 +92,12 @@ void Pane::UpdateAutoRange(const Viewport& viewport) {
     visible_range = Range(0.0, 1.0);
   }
 
+  if (visible_range.span() <= 0.0) {
+    visible_range = visible_range.Expanded(0.0, 1.0);
+  }
+
   y_scale_.SetBounds(content_rect_);
-  y_scale_.SetRange(visible_range.Expanded(0.08, 1.0));
+  y_scale_.SetRange(visible_range);
 }
 
 }  // namespace kairo
